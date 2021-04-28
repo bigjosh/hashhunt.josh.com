@@ -14,7 +14,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
 
-    <title>Hashhunter!</title>
+    <title>Hash Hunt!</title>
 </head>
 
 
@@ -40,6 +40,8 @@
         border-style: solid;
         border-width: 1px;
         cursor: pointer;
+        font-weight: bold;
+        font-size: 1.5em;
     }
 
     @keyframes you_win_cell {
@@ -84,7 +86,8 @@
 
 </style>
 <body>
-<h1>Hashhunter! Find the hash!</h1>
+<h1>First one to find all the hashes wins 5 bitcoin.</h1>
+<h2>Guaranteed winner in each round.</h2>
 
 <table id="wheelsTable">
 </table>
@@ -120,7 +123,7 @@
         let t;
 
         if (v===0) {             // Winning wheel?
-            t = "&#8383;";       // Bitcoin logo
+            t = "#";             // The magic hash
             cell.classList.add( "wheelscell_winner_cell");
         } else {
            t =  "&#" + (127811+v) +";";  // Fruits
@@ -215,6 +218,12 @@
     }
 </script>
 
+<script src="js/bitcoinjs.min.js"></script>
+<script>
+    const keyPair = bitcoin.ECPair.makeRandom();
+    const { address } = bitcoin.payments.p2pkh({ pubkey: keyPair.publicKey });
+    console.log(address);
+</script>
 
 
 
