@@ -218,11 +218,48 @@
     }
 </script>
 
-<script src="js/bitcoinjs.min.js"></script>
+
+<script src="js/bitcoinjs.min.js">
+    // This is a Browserfy'ed version of the popular bitcoinjs package.
+    // To verify it is trustworthy for yourself, check out ./js/bitcoinjs.MD
+</script>
 <script>
-    const keyPair = bitcoin.ECPair.makeRandom();
-    const { address } = bitcoin.payments.p2pkh({ pubkey: keyPair.publicKey });
-    console.log(address);
+    const TESTNET = bitcoinjs.networks.testnet;
+    const MAINNET = bitcoinjs.networks.main;
+
+    const network = MAINNET;
+    const keyPair = bitcoinjs.ECPair.makeRandom();
+    const address1  = bitcoinjs.payments.p2pkh({ pubkey: keyPair.publicKey ,  network: TESTNET  }).address;
+    const pubkey = keyPair.publicKey;
+    const privateKey = keyPair.privateKey;
+    const wif = keyPair.toWIF();
+    console.log(pubkey);
+    console.log(address1);
+    console.log(wif);
+
+
+    // Lets make a block
+    // https://github.com/bitcoinjs/bitcoinjs-lib/blob/master/ts_src/block.ts
+
+    let block= new bitcoinjs.Block();        // Set up all the fields
+
+    // https://developer.bitcoin.org/reference/block_chain.html
+
+    // Lets try this first
+    // https://www.blockchain.com/btc/block/000000000000000000039f8b1a2c48ee1dacd581e7cacb560e75d8de051cc0e1
+    block.version = Number.parseInt( "2000e000" , 16 );
+
+
+    block.prevHash = bitcoinjs.buffer.Buffer.from("00000000000000000000120caab7c1caeb4aad6e9dc242e7530d543edd4f6a27","hex");
+    block.merkleRoot = bitcoinjs.buffer.Buffer.from("b847ca78b242364926cd5a11469c8b98864ce1af031f5ed3567041a22a8ac2f5","hex");
+    block.timestamp = 1619825649;
+    block.bits = bitcoinjs.buffer.Buffer.from("170bef93","hex");
+    block.nonce = 1334528400;
+
+    let blockhex = block.toHex(true);       // True is headers only
+    console.log( "block="+blockhex);
+
+
 </script>
 
 

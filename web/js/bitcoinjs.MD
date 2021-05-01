@@ -3,15 +3,15 @@
 Installed Node version 14.16.1 from...
 https://nodejs.org/en/#download
 
-Then executed...
+Then executed in the `/npm` directory of this repo...
 ```
 npm -g install bitcoinjs-lib browserify uglify-js
-browserify -r bitcoinjs-lib -s bitcoin | uglifyjs > bitcoinjs.min.js
+browserify index.js -s bitcoinjs -o bitcoinjs.min.js
 ```
 
-...as per this page...
-https://coinpunk.github.io/bitcoinjs-lib/
-...except that I changed the first letter in `bitcoin` to lower case to match the examples in the bitcoinjs documentation. 
+This creates a `bitcoin.min.js` that has all he functions from the `bitcoinjs` library in it, ready for the browser to access by pretending "bitcoinjs.".
+
+If you look inside the `index.js` you'll see I also had to include the `Buffer` class, which is accessed in the browser as `bitcoinjs.buffer.Buffer`. I'm sure there is a better way to do this but damned if I could figure it out. 
 
 
 Here are all the versions of NPM installed packages...
