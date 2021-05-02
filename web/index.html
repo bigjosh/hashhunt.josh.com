@@ -249,15 +249,19 @@
     // https://www.blockchain.com/btc/block/000000000000000000039f8b1a2c48ee1dacd581e7cacb560e75d8de051cc0e1
     block.version = Number.parseInt( "2000e000" , 16 );
 
-
-    block.prevHash = bitcoinjs.buffer.Buffer.from("00000000000000000000120caab7c1caeb4aad6e9dc242e7530d543edd4f6a27","hex");
-    block.merkleRoot = bitcoinjs.buffer.Buffer.from("b847ca78b242364926cd5a11469c8b98864ce1af031f5ed3567041a22a8ac2f5","hex");
+    block.prevHash = bitcoinjs.buffer.Buffer.from("00000000000000000000120caab7c1caeb4aad6e9dc242e7530d543edd4f6a27","hex").reverse();
+    block.merkleRoot = bitcoinjs.buffer.Buffer.from("b847ca78b242364926cd5a11469c8b98864ce1af031f5ed3567041a22a8ac2f5","hex").reverse();
     block.timestamp = 1619825649;
-    block.bits = bitcoinjs.buffer.Buffer.from("170bef93","hex");
+    block.bits = 0x170bef93; //bitcoinjs.buffer.Buffer.from("170bef93","hex");
     block.nonce = 1334528400;
 
     let blockhex = block.toHex(true);       // True is headers only
     console.log( "block="+blockhex);
+
+    let blockhash= block.getHash();
+    let blockhashhex = blockhash.toString("hex");       // True is headers only
+
+    console.log( "blockhash=" + blockhashhex);
 
 
 </script>
