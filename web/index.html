@@ -270,12 +270,19 @@
 
 <script src="js/bitcoinjs.min.js">
 </script>
-<script>
-    const TESTNET = bitcoinjs.networks.testnet;
-    const MAINNET = bitcoinjs.networks.main;
 
-    const network = TESTNET;
-    const keyPair = bitcoinjs.ECPair.makeRandom();
+<script>
+    // All Globals here so we can keep track of them
+    var network;        // Test or Main
+    var keyPair;        // User's keypair
+</script>
+
+<script>
+
+    network = bitcoinjs.networks.testnet;
+    //network = bitcoinjs.networks.main;
+
+    keyPair = bitcoinjs.ECPair.makeRandom();
     const address1  = bitcoinjs.payments.p2pkh({ pubkey: keyPair.publicKey ,  network  }).address;
     const pubkey = keyPair.publicKey;
     const privateKey = keyPair.privateKey;
@@ -310,6 +317,21 @@
 
     console.log( "blockhash=" + blockhashhex);
 
+    // How can the API not come with this function?!
+    bitcoinjs.buffer.Buffer.prototype.writeBuffer = function ( b , o  ) {
+        return o+b.copy( this , o  );
+    }
+
+    // How can the API not come with this function?!
+    bitcoinjs.buffer.Buffer.prototype.fillByte = function ( b , c , o  ) {
+        while (c) {
+            o=this.writeUInt8( b , o );
+            c--;
+        }
+        return o;
+    }
+
+
     // Now lets try adding a coinbase transaction to the block
     // Here is an empty block we can use as a template:
     // d8025d52f6d10559f60207f4f9db2545f1935ef69a5b418e9b2ae6e711b654e6
@@ -325,33 +347,147 @@
 
     // https://medium.com/@aniketdivekar/bitcoin-create-sign-and-push-transaction-2ea877c08ab4
 
-    const psbt = new bitcoinjs.Psbt( { network: network } );
-
-    psbt.addOutput( { address: address1 , value: 5e8 } );      // We don't be greedy.
-
-    console.log( "out tx="+ psbt.extractTransaction(true).toHex() );
 
     // Let's build a raw coinbase transaction from scratch since I can not figure out how to do it in bitcoinjs
 
-    let txbuffer = bitcoinjs.buffer.Buffer( 4+1+4+4+1+1+4+4 );
+    // This is a coinbase input transaction script that just pushes the blockheight on the stack
+    function pushHeightScript( height ) {
+        let b = bitcoinjs.buffer.Buffer( 256 );     // This is lazy, but I am bad at counting
+        let o=0;
+        // We need to push the block number on the stack as per BIP-0034
+        o=b.writeUInt8( bitcoinjs.opcodes.OP_PUSHDATA1 , o );             // A bit premature, but I am too lazy to write a writeUInt24LE.
+        o=b.writeUInt8( 4 , o );                                  // Push 4 bytes of blockheight
+        o=b.writeUInt32LE( height , o );                     // Will this work (currently everyone does only 3 bytes)
 
-    txbuffer.writeUInt32LE(0x01);   // Version number. Currently 0x02 based on looking at recent coinbase transactions.
-    txbuffer.writeUInt8( 0x01 );    // Input count
+        // TODO: Put a "Play Hashunt.josh.com" in here.
 
-    // First (only) input, Coinbase tx
-    txbuffer.writeUInt32LE(0x00000000);     // source hash - null by convention
-    txbuffer.writeUInt32LE(0xffffffff);     // source index - -1 by convention
-    txbuffer.writeUInt8(0x05);              // script len (the script directly below is 5 bytes
+        return b.slice(0,o);
+    }
 
-    // We need to push the block number on the stack as per BIP-0034
-    txbuffer.writeUInt8( 0x04);             // OP_PUSHBYTES_4 - Will this work (currently everyone does only 3 bytes)
-    txbuffer.writeUInt32LE( block.height );
+    // Creates a coinbase input transaction. Takes blockheight as a num. Returns a buffer.
+    function coinbaseTx( blockheight ) {
+        let b = bitcoinjs.buffer.Buffer( 256 );     // This is lazy, but I am bad at counting
+        let o=0;
+        o=b.fillByte( 0x00 , 32 , o  );      // source hash - null by convention
+        o=b.writeUInt32LE(0xffffffff,o);     // source index - -1 by convention
 
-    txbuffer.writeUInt32LE( 0xffffffff);    // Sequence number - seems to always be -1
+        // We need to push the block number on the stack as per BIP-0034
+        let coinbaseScript = pushHeightScript( blockheight );
+        o=b.writeUInt8( coinbaseScript.length ,o);              // script len (the script directly below is 5 bytes
+        o=b.writeBuffer( coinbaseScript , o );
 
-    block.transactions.write( txbuffer );
+        o=b.writeUInt32LE( 0xffffffff ,o);    // Sequence number - seems to always be -1
 
-    // todo add output p2pk hash, op_checksig
+        console.log("coinbase:");
+        console.log("height:" + blockheight );
+        console.log( b.slice(0,o).toString("hex"));
+
+        return b.slice(0,o);
+    }
+
+    // Creates a single P2PK locking script
+    // Takes a buffer with the public key, returns a buffer
+    function outScript( pubkey ) {
+        let b = bitcoinjs.buffer.Buffer(256);     // This is lazy, but I am bad at counting
+        let o = 0;
+        // Simplest lock script is to push a publick key and the OP_CHECK sig
+        o=b.writeBuffer( pubkey , o );
+        o=b.writeUInt8(  bitcoinjs.opcodes.OP_CHECKSIG , o );
+        return b.slice(0,o);
+    }
+
+    // Create a normal P2PK tx
+    // Value is number of satoshis. Must be < 2^32.
+    // Pubkey is a buffer with the public key.
+    // Returns a buffer.
+    function P2PKOut(value , pubkey ) {
+        let b = bitcoinjs.buffer.Buffer(256);     // This is lazy, but I am bad at counting
+        let o = 0;
+        o=b.writeUInt32LE(value , o);           // Write the lower 32 bits of value.
+        o=b.writeUInt32LE( 0 , o);              // Full field is 64 bits, so write zeros in upper 32 bits.
+        let outscriptBuffer = outScript(pubkey);
+        o=b.writeUInt8( bitcoinjs.opcodes.OP_PUSHDATA1 , o );    // The next byte contains the number of bytes to be pushed onto the stack.
+        o=b.writeUInt8( outscriptBuffer.length , o);
+        o=b.writeBuffer( outscriptBuffer , o );
+        return b.slice(0,o);
+    }
+
+    // Create a standard  P2PKH lock script
+    // Pubkey is a buffer public key
+    // Returns a buffer.
+    function P2PKHOutScript( pubkey ) {
+        let b = bitcoinjs.buffer.Buffer(256);     // This is lazy, but I am bad at counting
+        let o = 0;
+        // Below is the standard P2PKH script: OP_DUP OP_HASH160 <pubKeyHash> OP_EQUALVERIFY OP_CHECKSIG
+        // Helpful for debugging this.. https://siminchen.github.io/bitcoinIDE/build/editor.html
+        // (took 1 hour to figure out that pubkeyhash.len should have been pubkeyhash.length. I hate JS.)
+
+        o=b.writeUInt8( bitcoinjs.opcodes.OP_DUP , o );
+        o=b.writeUInt8( bitcoinjs.opcodes.OP_HASH160 , o );
+
+        let pubkeyhash = bitcoinjs.crypto.hash160( pubkey );
+        o=b.writeUInt8( bitcoinjs.opcodes.OP_PUSHDATA1 , o );
+        o=b.writeUInt8( pubkeyhash.length, o);
+        o=b.writeBuffer( pubkeyhash , o );
+
+        o=b.writeUInt8( bitcoinjs.opcodes.OP_EQUALVERIFY , o );
+        o=b.writeUInt8( bitcoinjs.opcodes.OP_CHECKSIG , o );
+
+        return b.slice(0,o);
+    }
+
+    // Create a normal P2PKH tx
+    // value is satoshis
+    // Pubkey is a buffer public key
+    // Returns a buffer.
+
+    function P2PKHOutTx( value , pubkey ) {
+        let b = bitcoinjs.buffer.Buffer(256);     // This is lazy, but I am bad at counting
+        let o = 0;
+
+        o=b.writeUInt32LE( value, o);               // Write the lower 32 bits of value in satoshis
+        o=b.writeUInt32LE( 0 , o);                  // Full field is 64 bits, so write zeros in upper 32 bits.
+
+        console.log("value:")
+        console.log( value.toString( 16) );
+
+
+        let outTxScript = P2PKHOutScript( pubkey );
+
+        console.log("outTxScript:")
+        console.log( outTxScript.toString("hex") );
+
+        o=b.writeUInt8( outTxScript.length , o );              // Out script len
+        o=b.writeBuffer( outTxScript , o );
+
+        return b.slice(0,o);
+    }
+
+
+    let b = bitcoinjs.buffer.Buffer( 256 );       // Oversize for now
+    let o = 0;
+
+    o=b.writeUInt32LE(0x01 , o );   // Version number. Currently 0x01 based on looking at recent coinbase transactions.
+
+    // First inputs
+    o=b.writeUInt8( 0x01  , o );    // Input count
+    let inTx = coinbaseTx( 123456 ,o );
+    o=b.writeBuffer( inTx , o);
+
+    console.log("after cb:")
+    console.log( b.slice(0,o).toString("hex") );
+
+    // Then outputs
+    o=b.writeUInt8( 0x01 , o  );     // Output count
+    let outTx = P2PKHOutTx( 5 * 1e8  , keyPair.publicKey );
+    o=b.writeBuffer( outTx , o  );
+
+    o=b.writeUInt32LE( 0x00000000 , o );        // Locktime
+
+    console.log("TX:");
+    console.log( b.slice(0,o).toString("hex") );
+
+
 
 </script>
 
