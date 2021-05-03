@@ -323,6 +323,44 @@
     }
 
     // How can the API not come with this function?!
+    bitcoinjs.buffer.Buffer.prototype.writeUInt24LE = function ( x , o  ) {
+
+        let b2 = ((x >> 16) & 0xff);
+        let b1 = ((x >>  8) & 0xff);
+        let b0 = ((x >>  0) & 0xff);
+
+        o=this.writeUInt8( b0 , o );             // A bit premature, but I am too lazy to write a writeUInt24LE.
+        o=this.writeUInt8( b1 , o );             // A bit premature, but I am too lazy to write a writeUInt24LE.
+        o=this.writeUInt8( b2 , o );             // A bit premature, but I am too lazy to write a writeUInt24LE.
+
+        return o;
+    }
+
+    // Write a bitcoin varint type
+    // Defined here https://developer.bitcoin.org/reference/transactions.html#compactsize-unsigned-integers
+    bitcoinjs.buffer.Buffer.prototype.writeVarint = function ( x , o  ) {
+
+        if ( x <= 252 ) {
+            o = this.writeUInt8(x, o);             // Small numbers are themselves
+        } else if (x <=0xffff) {
+            o = this.writeUInt8(0xfd, o);             // Prefix
+            o = this.writeUInt16LE(x, o);             // Prefix
+        } else if ( x<=  0xffffffff ) {
+            o = this.writeUInt8(0xfe, o);             // Prefix
+            o = this.writeUInt32LE(x, o);             // Prefix
+        } else if ( x<=  0xffffffffffff ) {
+            o = this.writeUInt8(0xff, o);             // Prefix
+            o = this.writeUInt24LE(x, o);             // Prefix
+            o = this.writeUInt8( 0, o);               // We only support up to 24 bits, fill top with 0
+        } else {
+            console.error( "Number too big in writeVarint:" + x );
+        }
+        return o;
+    }
+
+
+
+    // How can the API not come with this function?!
     bitcoinjs.buffer.Buffer.prototype.fillByte = function ( b , c , o  ) {
         while (c) {
             o=this.writeUInt8( b , o );
@@ -330,6 +368,7 @@
         }
         return o;
     }
+
 
 
     // Now lets try adding a coinbase transaction to the block
@@ -348,16 +387,76 @@
     // https://medium.com/@aniketdivekar/bitcoin-create-sign-and-push-transaction-2ea877c08ab4
 
 
-    // Let's build a raw coinbase transaction from scratch since I can not figure out how to do it in bitcoinjs
-
-    // This is a coinbase input transaction script that just pushes the blockheight on the stack
-    function pushHeightScript( height ) {
+    // Push a value on the stack using the most efficient OP code
+    function pushValueScriptOps( d ) {
         let b = bitcoinjs.buffer.Buffer( 256 );     // This is lazy, but I am bad at counting
         let o=0;
+
+        // All the op codes 1-75 mean "push x bytes on stack"
+
+        if ( d < (1<<8) ) {
+            o=b.writeUInt8( 0x01 , o );                             // 1 byte of data OP_CODE
+            o=b.writeUInt8(    d , o );
+        } else if ( d < (1<<16) ) {
+            o=b.writeUInt8( 0x02 , o );                             // 2 byte of data OP_CODE
+            o=b.writeUInt16LE(  d , o );
+        } else if ( d < (1<<24) ) {
+            o=b.writeUInt8( 0x03 , o );                             // 3 byte of data OP_CODE
+            o=b.writeUInt24LE(   d , o );
+        } else if ( d < (1<<32) ) {
+            o = b.writeUInt8(0x04, o);                             // 4 byte of data OP_CODE
+            o = b.writeUInt32LE( d, o);
+        } else {
+            console.error( "Value to big in pushValueScript "+ d );
+        }
+
+        return b.slice(0,o);
+    }
+
+    // Push a buffer on the stack using the most efficient OP code
+    function pushBufferScriptOps( s ) {
+        let b = bitcoinjs.buffer.Buffer( 256 );     // This is lazy, but I am bad at counting
+        let o=0;
+
+        // All the op codes 1-75 mean "push x bytes on stack"
+        if (s.length <= 75 ) {
+            o = b.writeUInt8(s.length, o);                             // 1 byte of data OP_CODE
+        } else if (s.length < (1<<8) ) {
+            o=b.writeUInt8(  bitcoinjs.opcodes.OP_PUSHDATA1 , o );
+            o=b.writeUInt8( s.length , o );
+        } else if ( s.length < (1<<16) ) {
+            o=b.writeUInt8( bitcoinjs.opcodes.OP_PUSHDATA2  , o );                             // 2 byte of data OP_CODE
+            o=b.writeUInt16LE(  s.length , o );
+        } else if ( s.length < (1<<24) ) {
+            o=b.writeUInt8( bitcoinjs.opcodes.OP_PUSHDATA3   , o );                             // 3 byte of data OP_CODE
+            o=b.writeUInt24LE(   s.length , o );
+        } else if ( s.length < (1<<32) ) {
+            o = b.writeUInt8( bitcoinjs.opcodes.OP_PUSHDATA4  , o);                             // 4 byte of data OP_CODE
+            o = b.writeUInt32LE( s.length, o);
+        } else {
+            console.error( "Value to big in pushValueScript "+ d );
+        }
+
+        // Write the actual data itself
+        o=b.writeBuffer( s , o );
+
+        return b.slice(0,o);
+    }
+
+
+    // Let's build a raw coinbase transaction from scratch since I can not figure out how to do it in bitcoinjs
+
+    function pushHeightScript( blockheight ) {
+        let b = bitcoinjs.buffer.Buffer( 256 );     // This is lazy, but I am bad at counting
+        let o=0;
+
         // We need to push the block number on the stack as per BIP-0034
-        o=b.writeUInt8( bitcoinjs.opcodes.OP_PUSHDATA1 , o );             // A bit premature, but I am too lazy to write a writeUInt24LE.
-        o=b.writeUInt8( 4 , o );                                  // Push 4 bytes of blockheight
-        o=b.writeUInt32LE( height , o );                     // Will this work (currently everyone does only 3 bytes)
+        let pushBlockheightOps = pushValueScriptOps(blockheight);
+        o=b.writeBuffer(pushBlockheightOps,o);
+
+        console.log("script:" + blockheight );
+        console.log( b.slice(0,o).toString("hex"));
+
 
         // TODO: Put a "Play Hashunt.josh.com" in here.
 
@@ -372,9 +471,11 @@
         o=b.writeUInt32LE(0xffffffff,o);     // source index - -1 by convention
 
         // We need to push the block number on the stack as per BIP-0034
-        let coinbaseScript = pushHeightScript( blockheight );
-        o=b.writeUInt8( coinbaseScript.length ,o);              // script len (the script directly below is 5 bytes
-        o=b.writeBuffer( coinbaseScript , o );
+        let coinbasescript= pushHeightScript( blockheight );
+        o=b.writeVarint( coinbasescript.length , o );
+        o=b.writeBuffer( coinbasescript , o );
+
+        // TODO: Put a "Play Hashunt.josh.com" in here.
 
         o=b.writeUInt32LE( 0xffffffff ,o);    // Sequence number - seems to always be -1
 
@@ -391,7 +492,8 @@
         let b = bitcoinjs.buffer.Buffer(256);     // This is lazy, but I am bad at counting
         let o = 0;
         // Simplest lock script is to push a publick key and the OP_CHECK sig
-        o=b.writeBuffer( pubkey , o );
+        let pushPKops = pushBufferScriptOps( pubkey );
+        o=b.writeBuffer( pushPKops  , o );
         o=b.writeUInt8(  bitcoinjs.opcodes.OP_CHECKSIG , o );
         return b.slice(0,o);
     }
@@ -400,13 +502,12 @@
     // Value is number of satoshis. Must be < 2^32.
     // Pubkey is a buffer with the public key.
     // Returns a buffer.
-    function P2PKOut(value , pubkey ) {
+    function P2PKOut( value , pubkey ) {
         let b = bitcoinjs.buffer.Buffer(256);     // This is lazy, but I am bad at counting
         let o = 0;
-        o=b.writeUInt32LE(value , o);           // Write the lower 32 bits of value.
+        o=b.writeUInt32LE(value , o);           // Write the lower 32 bits of value we are sending.
         o=b.writeUInt32LE( 0 , o);              // Full field is 64 bits, so write zeros in upper 32 bits.
         let outscriptBuffer = outScript(pubkey);
-        o=b.writeUInt8( bitcoinjs.opcodes.OP_PUSHDATA1 , o );    // The next byte contains the number of bytes to be pushed onto the stack.
         o=b.writeUInt8( outscriptBuffer.length , o);
         o=b.writeBuffer( outscriptBuffer , o );
         return b.slice(0,o);
@@ -426,9 +527,9 @@
         o=b.writeUInt8( bitcoinjs.opcodes.OP_HASH160 , o );
 
         let pubkeyhash = bitcoinjs.crypto.hash160( pubkey );
-        o=b.writeUInt8( bitcoinjs.opcodes.OP_PUSHDATA1 , o );
-        o=b.writeUInt8( pubkeyhash.length, o);
-        o=b.writeBuffer( pubkeyhash , o );
+
+        let pushPubKeyOps = pushBufferScriptOps( pubkeyhash );
+        o=b.writeBuffer( pushPubKeyOps , o );
 
         o=b.writeUInt8( bitcoinjs.opcodes.OP_EQUALVERIFY , o );
         o=b.writeUInt8( bitcoinjs.opcodes.OP_CHECKSIG , o );
@@ -451,13 +552,12 @@
         console.log("value:")
         console.log( value.toString( 16) );
 
-
         let outTxScript = P2PKHOutScript( pubkey );
 
         console.log("outTxScript:")
         console.log( outTxScript.toString("hex") );
 
-        o=b.writeUInt8( outTxScript.length , o );              // Out script len
+        o=b.writeVarint( outTxScript.length , o );              // Out script len
         o=b.writeBuffer( outTxScript , o );
 
         return b.slice(0,o);
