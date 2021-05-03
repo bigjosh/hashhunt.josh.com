@@ -5,7 +5,7 @@ https://nodejs.org/en/#download
 
 Then executed in the `/npm` directory of this repo...
 ```
-npm -g install bitcoinjs-lib browserify uglify-js
+npm -g install bitcoinjs-lib browserify
 browserify index.js -s bitcoinjs -o bitcoinjs.min.js
 ```
 
