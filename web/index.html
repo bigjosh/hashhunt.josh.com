@@ -63,7 +63,7 @@
 <style>
 
     body {
-        font-family: 'Roboto', sans-serif;;
+        font-family: 'Roboto', sans-serif;
     }
 
     .kenocell {
@@ -110,34 +110,37 @@
 
 </style>
 <body>
-<table>
-    <tr><td><hr style="margin: 1px 0px 1px 0px; "></td></tr>
-    <tr><td><div style="box-sizing:border-box;"><span style="font-family: 'Girassol', serif ;font-size: xx-large; padding: 10px; background: black; color:white; display:inline-block;">HASH HUNT</span></div></td></tr>
-    <tr><td><hr style="margin: 1px 0px 1px 0px; "></td></tr>
-</table>
-<ul>
-    <li>Click numbers to toggle.</li>
-    <li>Make all the reels come up hashes.</li>
-    <li>First to find winning pattern gets 5 bitcoin.</li>
-    <li>Round continues until winning pattern is found.</li>
-    <li>New patterns in each round.</li>
-</ul>
+<table style="max-width: 100%">
 
-<table>
-    <tr style="width: 100%;"><td style="width: 100%;">
+    <tr><td>
+        <table style="max-width: 100%">
+            <tr><td><hr style="margin: 1px 0px 1px 0px; "></td></tr>
+            <tr><td><div style="box-sizing:border-box;"><span style="font-family: 'Girassol', serif ;font-size: xx-large; padding: 10px; background: black; color:white; display:inline-block;">HASH HUNT</span></div></td></tr>
+            <tr><td><hr style="margin: 1px 0px 1px 0px; "></td></tr>
+        </table>
+    </td></tr>
+
+    <tr><td>
+        <ul style="max-width: 100%">
+            <li>Click numbers to toggle.</li>
+            <li>Make all the reels come up hashes.</li>
+            <li>First to find winning pattern gets 5 bitcoin.</li>
+            <li>Round continues until winning pattern is found.</li>
+            <li>New patterns in each round.</li>
+        </ul>
+    </td></tr>
+
+
+    <tr ><td>
         <table id="wheelsTable" style="width: 100%;"></table>
     </td></tr>
 
-    <tr><td>
-
-    <!---   Debug info on the bits and the hash
-        <div id="in" style="font-family: 'Courier New',monospace" >NOT SET YET</div>
-        <div id="out" style="font-family: 'Courier New',monospace">NOT SET YET</div>
-    --->
-    </td></tr>
+    <tr>
+        <td><hr></td>
+    </tr>
 
     <tr><td>
-        <table id="kenotable"></table>
+        <table id="kenotable" style="width: 100%;"></table>
     </td></tr>
 </table>
 
@@ -217,9 +220,11 @@
 
     let wheelstable = document.getElementById("wheelsTable");
     let cell_index=0;
-    for(let row_index=0; row_index<4;row_index++) {
+    const wheelstablecols = 5;      // Must be an integer factor of 20 for now.
+    let row_index=0;
+    while ( cell_index < 20 ) {
         let row = wheelstable.insertRow();
-        for (let col_index = 0; col_index < 5; col_index++) {
+        for (let col_index = 0; col_index < wheelstablecols; col_index++) {
             let cell = row.insertCell();
             wheelstablecells[cell_index] = cell;
             cell.classList.add("wheelscell");
@@ -227,6 +232,7 @@
             cell_index++;
             //console.log("index="+cell_index+" row="+row_index+" col="+col_index)
         }
+        row_index++;
     }
 
     function onmousedownhandler(e,c,b) {
@@ -291,7 +297,6 @@
     console.log(address1);
     console.log(wif);
 
-
     // Lets make a block
     // https://github.com/bitcoinjs/bitcoinjs-lib/blob/master/ts_src/block.ts
 
@@ -301,13 +306,13 @@
 
     // Lets try this first
     // https://www.blockchain.com/btc/block/000000000000000000039f8b1a2c48ee1dacd581e7cacb560e75d8de051cc0e1
-    block.version = Number.parseInt( "2000e000" , 16 );
+    block.version = 0x20000000;
 
-    block.prevHash = bitcoinjs.buffer.Buffer.from("00000000000000000000120caab7c1caeb4aad6e9dc242e7530d543edd4f6a27","hex").reverse();
+    block.prevHash = bitcoinjs.buffer.Buffer.from("49b024a553abf2a23d41ea04e2d64d4e5a33039c86e739299ec13df10e9e7859","hex").reverse();
     block.merkleRoot = bitcoinjs.buffer.Buffer.from("b847ca78b242364926cd5a11469c8b98864ce1af031f5ed3567041a22a8ac2f5","hex").reverse();
-    block.timestamp = 1619825649;
-    block.bits = 0x170bef93; //bitcoinjs.buffer.Buffer.from("170bef93","hex");
-    block.nonce = 1334528400;
+    block.timestamp = 1620106834;
+    block.bits = 0x207fffff;
+    block.nonce = 0;
 
     let blockhex = block.toHex(true);       // True is headers only
     console.log( "block="+blockhex);
@@ -316,6 +321,12 @@
     let blockhashhex = blockhash.toString("hex");       // True is headers only
 
     console.log( "blockhash=" + blockhashhex);
+
+    // Shortcut to make an oversized buffer
+    function makeOversizedBuffer()
+    {
+        return bitcoinjs.buffer.Buffer(256);
+    }
 
     // How can the API not come with this function?!
     bitcoinjs.buffer.Buffer.prototype.writeBuffer = function ( b , o  ) {
@@ -329,9 +340,9 @@
         let b1 = ((x >>  8) & 0xff);
         let b0 = ((x >>  0) & 0xff);
 
-        o=this.writeUInt8( b0 , o );             // A bit premature, but I am too lazy to write a writeUInt24LE.
-        o=this.writeUInt8( b1 , o );             // A bit premature, but I am too lazy to write a writeUInt24LE.
-        o=this.writeUInt8( b2 , o );             // A bit premature, but I am too lazy to write a writeUInt24LE.
+        o=this.writeUInt8( b0 , o );
+        o=this.writeUInt8( b1 , o );
+        o=this.writeUInt8( b2 , o );
 
         return o;
     }
@@ -369,6 +380,17 @@
         return o;
     }
 
+    // How can the API not come with this function?!
+    bitcoinjs.buffer.Buffer.prototype.asReversed = function () {
+        let r = bitcoinjs.buffer.Buffer( this.length );
+
+        for( let s=0; s< this.length ; s++ ) {
+
+            r[(this.length-s)-1] = this[s];
+        }
+
+        return r;
+    }
 
 
     // Now lets try adding a coinbase transaction to the block
@@ -457,25 +479,26 @@
         console.log("script:" + blockheight );
         console.log( b.slice(0,o).toString("hex"));
 
-
-        // TODO: Put a "Play Hashunt.josh.com" in here.
+        // Here we get to stick in a little message in the coinbase
+        o=b.writeBuffer( bitcoinjs.buffer.Buffer.from("/Play Hashhunt.josh.com/") , o );
+        console.log("with mesage:" + blockheight );
+        console.log( b.slice(0,o).toString("hex"));
 
         return b.slice(0,o);
     }
 
     // Creates a coinbase input transaction. Takes blockheight as a num. Returns a buffer.
     function coinbaseTx( blockheight ) {
-        let b = bitcoinjs.buffer.Buffer( 256 );     // This is lazy, but I am bad at counting
+        let b = bitcoinjs.buffer.Buffer( 256 );
         let o=0;
         o=b.fillByte( 0x00 , 32 , o  );      // source hash - null by convention
         o=b.writeUInt32LE(0xffffffff,o);     // source index - -1 by convention
 
         // We need to push the block number on the stack as per BIP-0034
         let coinbasescript= pushHeightScript( blockheight );
+
         o=b.writeVarint( coinbasescript.length , o );
         o=b.writeBuffer( coinbasescript , o );
-
-        // TODO: Put a "Play Hashunt.josh.com" in here.
 
         o=b.writeUInt32LE( 0xffffffff ,o);    // Sequence number - seems to always be -1
 
@@ -489,7 +512,7 @@
     // Creates a single P2PK locking script
     // Takes a buffer with the public key, returns a buffer
     function outScript( pubkey ) {
-        let b = bitcoinjs.buffer.Buffer(256);     // This is lazy, but I am bad at counting
+        let b = makeOversizedBuffer();
         let o = 0;
         // Simplest lock script is to push a publick key and the OP_CHECK sig
         let pushPKops = pushBufferScriptOps( pubkey );
@@ -503,7 +526,7 @@
     // Pubkey is a buffer with the public key.
     // Returns a buffer.
     function P2PKOut( value , pubkey ) {
-        let b = bitcoinjs.buffer.Buffer(256);     // This is lazy, but I am bad at counting
+        let b = makeOversizedBuffer();
         let o = 0;
         o=b.writeUInt32LE(value , o);           // Write the lower 32 bits of value we are sending.
         o=b.writeUInt32LE( 0 , o);              // Full field is 64 bits, so write zeros in upper 32 bits.
@@ -517,7 +540,7 @@
     // Pubkey is a buffer public key
     // Returns a buffer.
     function P2PKHOutScript( pubkey ) {
-        let b = bitcoinjs.buffer.Buffer(256);     // This is lazy, but I am bad at counting
+        let b = makeOversizedBuffer();     // This is lazy, but I am bad at counting
         let o = 0;
         // Below is the standard P2PKH script: OP_DUP OP_HASH160 <pubKeyHash> OP_EQUALVERIFY OP_CHECKSIG
         // Helpful for debugging this.. https://siminchen.github.io/bitcoinIDE/build/editor.html
@@ -543,7 +566,7 @@
     // Returns a buffer.
 
     function P2PKHOutTx( value , pubkey ) {
-        let b = bitcoinjs.buffer.Buffer(256);     // This is lazy, but I am bad at counting
+        let b = makeOversizedBuffer();
         let o = 0;
 
         o=b.writeUInt32LE( value, o);               // Write the lower 32 bits of value in satoshis
@@ -584,14 +607,57 @@
 
     o=b.writeUInt32LE( 0x00000000 , o );        // Locktime
 
+    var coinbaseTransaction = b.slice(0,o);
+
     console.log("TX:");
-    console.log( b.slice(0,o).toString("hex") );
+    console.log( coinbaseTransaction.toString("hex") );
 
+    // Hand code prev hash for now...
+    block.prevHash = bitcoinjs.buffer.Buffer.from("367d631b6fd28a8cbf79513c20111463e777793a695c696ea8b2e9ef7aff65c8","hex").asReversed();
 
+    // Ok, now we can put the coinbase transaction into the block
+    block.merkleRoot = bitcoinjs.crypto.sha256( bitcoinjs.crypto.sha256( coinbaseTransaction ) );
+
+    console.log("Merkle:");
+    console.log( block.merkleRoot.toString("hex") );
+
+    block.timestamp = 1620111482+(3600);
+
+    // OK, now we can start mining!
+
+    do {
+        block.nonce++;
+
+        blockhash =  block.getHash();
+
+    } while ((blockhash[31] | blockhash[30]) > 0 );
+
+    /*
+    // For testing force this block to be the one I see now so I can compare
+    block.prevHash = bitcoinjs.buffer.Buffer.from("367d631b6fd28a8cbf79513c20111463e777793a695c696ea8b2e9ef7aff65c8","hex").asReversed();
+    block.nonce = 1;
+    block.merkleRoot = bitcoinjs.buffer.Buffer.from("c40a1e396b379545d12dcc6b26256d9173a9c6f27da6b3f3af04987749613b7d","hex").asReversed();
+    block.timestamp = 1620111482;
+    */
+    console.log("blockhash:");
+    console.log( blockhash.toString("hex") );
+
+    console.log("block:");
+    console.log( block.toBuffer().toString("hex") );
+
+    let serializedblockBuffer = makeOversizedBuffer();
+    o=0;
+
+    o=serializedblockBuffer.writeBuffer( block.toBuffer() , o );
+    o=serializedblockBuffer.writeVarint( 0x01 , o );        // Transaction count
+    o=serializedblockBuffer.writeBuffer( coinbaseTransaction , o );
+
+    let serializedBlock = serializedblockBuffer.slice( 0 , o);
+
+    console.log("serilized block:");
+    console.log( serializedBlock.toString("hex") );
 
 </script>
-
-
 
 </body>
 </html>
