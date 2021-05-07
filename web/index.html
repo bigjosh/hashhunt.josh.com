@@ -67,7 +67,8 @@
     }
 
     .kenocell {
-        padding: 20px 25px;
+        padding-top: 20px;
+        padding-bottom: 20px;
         margin: 15px;
         text-align: center;
         border-style: solid;
@@ -81,7 +82,8 @@
     }
 
     .wheelscell {
-        padding: 10px 10px;
+        padding-top: 10px;
+        padding-bottom: 10px;
         text-align: center;
         border-style: solid;
         border-width: 1px;
@@ -108,41 +110,45 @@
         animation-direction: alternate;
     }
 
+    table {
+        table-layout: fixed;
+    }
+
 </style>
 <body>
-<table style="max-width: 100%">
+<div style="width: 100%; max-width: 600px; align-content: center;">
+    <div style="display: block; width: 100%;">
+        <span>
+            <table>
+                <tr><td><hr style="margin: 1px 0px 1px 0px; "></td></tr>
+                <tr><td><div style="box-sizing:border-box;"><span style="font-family: 'Girassol', serif ;font-size: xx-large; padding: 10px; background: black; color:white; display:inline-block;">HASH HUNT</span></div></td></tr>
+                <tr><td><hr style="margin: 1px 0px 1px 0px; "></td></tr>
+            </table>
+        </span>
+        <span>
+            <ul style="display: inline;">
+                <li>Click numbers to toggle.</li>
+                <li>Make all the reels come up hashes.</li>
+                <li>First to find winning pattern gets 5 bitcoin.</li>
+                <li>Round continues until winning pattern is found.</li>
+                <li>New patterns in each round.</li>
+            </ul>
+        </span>
+    </div>
 
-    <tr><td>
-        <table style="max-width: 100%">
-            <tr><td><hr style="margin: 1px 0px 1px 0px; "></td></tr>
-            <tr><td><div style="box-sizing:border-box;"><span style="font-family: 'Girassol', serif ;font-size: xx-large; padding: 10px; background: black; color:white; display:inline-block;">HASH HUNT</span></div></td></tr>
-            <tr><td><hr style="margin: 1px 0px 1px 0px; "></td></tr>
-        </table>
-    </td></tr>
 
-    <tr><td>
-        <ul style="max-width: 100%">
-            <li>Click numbers to toggle.</li>
-            <li>Make all the reels come up hashes.</li>
-            <li>First to find winning pattern gets 5 bitcoin.</li>
-            <li>Round continues until winning pattern is found.</li>
-            <li>New patterns in each round.</li>
-        </ul>
-    </td></tr>
-
-
-    <tr ><td>
+    <div style="display: block; width: 100%;">
         <table id="wheelsTable" style="width: 100%;"></table>
-    </td></tr>
+    </div>
 
-    <tr>
+    <div style="display: block; width: 100%;">
         <td><hr></td>
-    </tr>
+    </div>
 
-    <tr><td>
+    <div style="display: block; width: 100%;">
         <table id="kenotable" style="width: 100%;"></table>
-    </td></tr>
-</table>
+    </div>
+</div>
 
 <!-- Import a clean, no-dependency sha256 function -->
 <!-- From https://www.movable-type.co.uk/scripts/sha256.html#src-code -->
@@ -152,13 +158,13 @@
 
 <script>
 
-    // Number of leading hex 0's we need to get to win
-    var difficulty = 20;
+    // Number of hashwheels to show. We might need to update this bigger after a big difficulty adjustment.
+    var hashwheel_count = 20;
 
     // Quick access to the textContent of the cells.
     var wheelstablecells = [];
 
-    // Set wheel w to the given value. 0=Bitcoin, others=fruits
+    // Set wheel w to the given value. 0=Hash, others=fruits
     function setWheel(w,v) {
 
         let cell = wheelstablecells[w];
@@ -169,7 +175,7 @@
             t = "#";             // The magic hash
             cell.classList.add( "wheels_cell_hash");
         } else {
-           t =  "&#" + (127811+v) +";";  // Fruits
+           t = String.fromCodePoint(127811+v );                // Fruits - https://www.w3schools.com/charsets/ref_emoji.asp#:~:text=127813
            cell.classList.remove( "wheels_cell_hash");
         }
 
@@ -180,7 +186,7 @@
     // Set all the wheels according to the leading bytes of v
     // v is a string of hex digits at least `difficulty` in length
     function setwheels(v) {
-        for( let i=0; i<difficulty;i++ ) {
+        for( let i=0; i<hashwheel_count;i++ ) {
             setWheel(i, Number.parseInt( v[i] , 16  ) );
         }
 
