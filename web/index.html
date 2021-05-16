@@ -67,8 +67,8 @@
     }
 
     .kenocell {
-        padding-top: 20px;
-        padding-bottom: 20px;
+        padding-top: 10px;
+        padding-bottom: 10px;
         margin: 15px;
         text-align: center;
         border-style: solid;
@@ -82,8 +82,10 @@
     }
 
     .wheelscell {
+        /*
         padding-top: 10px;
         padding-bottom: 10px;
+        */
         text-align: center;
         border-style: solid;
         border-width: 1px;
@@ -117,25 +119,24 @@
 </style>
 <body>
 <div style="width: 100%; max-width: 600px; align-content: center;">
-    <div style="display: block; width: 100%;">
-        <span>
-            <table>
-                <tr><td><hr style="margin: 1px 0px 1px 0px; "></td></tr>
-                <tr><td><div style="box-sizing:border-box;"><span style="font-family: 'Girassol', serif ;font-size: xx-large; padding: 10px; background: black; color:white; display:inline-block;">HASH HUNT</span></div></td></tr>
-                <tr><td><hr style="margin: 1px 0px 1px 0px; "></td></tr>
-            </table>
-        </span>
-        <span>
-            <ul style="display: inline;">
-                <li>Click numbers to toggle.</li>
-                <li>Make all the reels come up hashes.</li>
-                <li>First to find winning pattern gets 5 bitcoin.</li>
-                <li>Round continues until winning pattern is found.</li>
-                <li>New patterns in each round.</li>
-            </ul>
-        </span>
-    </div>
 
+    <div style="display: block; width: 100%;">
+        <table style="width: 100%;">
+            <tr>
+                <td>
+                    <table style="display: inline;">
+                        <tr><td><hr style="margin: 1px 0px 1px 0px; "></td></tr>
+                        <tr><td><div style="box-sizing:border-box;"><span style="font-family: 'Girassol', serif ;font-size: xx-large; padding: 10px; background: black; color:white; display:inline-block;">HASH HUNT</span></div></td></tr>
+                        <tr><td><hr style="margin: 1px 0px 1px 0px; "></td></tr>
+                    </table>
+                </td>
+                <td style="text-align: right; padding-right: 10px;">
+                    <a href="info.html">more info</a><br><br>
+                    Round elapsed time <span id="etime">00:00:00</span>
+                </td>
+            </tr>
+        </table>
+    </div>
 
     <div style="display: block; width: 100%;">
         <table id="wheelsTable" style="width: 100%;"></table>
@@ -149,6 +150,20 @@
         <table id="kenotable" style="width: 100%;"></table>
     </div>
 </div>
+
+<script>
+
+    var seconds = 0;
+    var et = document.getElementById('etime');
+
+    function incrementSeconds() {
+        seconds += 1;
+        et.innerText = new Date(seconds * 1000).toISOString().substr(11, 8);        //https://stackoverflow.com/a/1322771/3152071
+    }
+
+    setInterval(incrementSeconds, 1000);
+
+</script>
 
 <!-- Import a clean, no-dependency sha256 function -->
 <!-- From https://www.movable-type.co.uk/scripts/sha256.html#src-code -->
