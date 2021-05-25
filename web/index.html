@@ -5,11 +5,11 @@
     Dear skeptical reviewer,
 
     I am so glad you are here. It was not without great personal discomfort that I crafted Hash Hunt
-    using only the most primitive and brutal tools available: Javascript, CSS, and HTML.
+    using only the most primitive and brutal tools available: Pure Javascript, CSS, and HTML.
 
     Why? I did it for you. So that you, gentle reader, could directly and independently verify that all
-    my claims are absolutely and factually true. Code cannot lie and so here is, naked and unminified
-    for your thoughtful inspection.
+    Hash Hunt prize claims are absolutely and factually true. Code cannot lie, and so here is- naked and
+    unminified for your thoughtful inspection.
 
     By the time you get to the end of this file, you will see that...
 
@@ -19,9 +19,7 @@
        will be able to claim their winnings directly using any bitcoin wallet that accepts a WIF formatted
        private key (all of them).
 
-    These are factual assertions, and I am certain that you will find nothing to contradict them.
-
-    Thank you for your participation.
+    Thank you for your time and participation in this experiment.
 
     -josh
 
@@ -271,7 +269,8 @@
 
 <!--
     This is a Browserfy'ed version of the popular bitcoinjs package.
-    To verify it is trustworthy for yourself, check out /js/bitcoinjs.MD.
+    To verify it is trustworthy for yourself, check out /js/bitcoinjs.MD
+    We only use it to generate the public ECSDA key and do some formatting.
     Sorry, I could not bring myself to write this stuff in Javascript. If
     you know a clean alternative I can use, please suggest it. I do not
     want to use the subtlecrypto stuff because it has the absurd requirement
@@ -660,7 +659,6 @@
     let serializedBlock = serializedblockBuffer.slice( 0 , o);
 
     console.log("serialized block:");
-    // noinspection JSCheckFunctionSignatures
     console.log( serializedBlock.toString("hex") );
 
 </script>
