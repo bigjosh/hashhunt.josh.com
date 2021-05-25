@@ -271,8 +271,7 @@
 
 <!--
     This is a Browserfy'ed version of the popular bitcoinjs package.
-    To verify it is trustworthy for yourself, check out /js/bitcoinjs.MD
-    We only use it to generate the public ECSDA key and do some formatting.
+    To verify it is trustworthy for yourself, check out /js/bitcoinjs.MD.
     Sorry, I could not bring myself to write this stuff in Javascript. If
     you know a clean alternative I can use, please suggest it. I do not
     want to use the subtlecrypto stuff because it has the absurd requirement
@@ -660,7 +659,8 @@
 
     let serializedBlock = serializedblockBuffer.slice( 0 , o);
 
-    console.log("serilized block:");
+    console.log("serialized block:");
+    // noinspection JSCheckFunctionSignatures
     console.log( serializedBlock.toString("hex") );
 
 </script>
