@@ -1,17 +1,15 @@
 {
   "name": "hashunt3",
   "version": "1.0.0",
-  "description": "",
+  "description": "The game at http://hashunt.josh.com",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "josh",
+  "license": "none granted",
   "dependencies": {
-    "express": "^4.17.1",
-    "express-ws": "^4.0.0",
     "ws": "^7.4.6"
   }
 }

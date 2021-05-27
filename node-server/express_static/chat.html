@@ -11,23 +11,34 @@
 
     let ws;
 
-    function showMessage(message) {
+    function processWebsocketData(b) {
+
+        const lastBlockAgeSecs = b.readUInt16LE( 0 );
+        const nbits            = b.readUInt32( 2 );
+        const lastBlockHash    = b.slice( 6 ).
+
+
       messages.textContent += `\n\n${message}`;
       messages.scrollTop = messages.scrollHeight;
       messageBox.value = '';
     }
 
     function init() {
-      if (ws) {
-        ws.onerror = ws.onopen = ws.onclose = null;
-        ws.close();
-      }
+        if (ws) {
+            ws.onerror = ws.onopen = ws.onclose = null;
+            ws.close();
+        }
 
-      ws = new WebSocket('ws://localhost');
+    ws = new WebSocket('ws://localhost' );
+
+    ws.binaryType = "arraybuffer";
+
+    // ws = new WebSocket('ws://' + location.host);      // https://stackoverflow.com/questions/10406930/how-to-construct-a-websocket-uri-relative-to-the-page-uri
+
       ws.onopen = () => {
         console.log('Connection opened!');
       }
-      ws.onmessage = ({ data }) => showMessage(data);
+      ws.onmessage = ({ data }) => processWebsocketData(data);
       ws.onclose = function() {
         ws = null;
       }

@@ -148,11 +148,6 @@
 
 </script>
 
-<!-- Import a clean, no-dependency sha256 function -->
-<!-- From https://www.movable-type.co.uk/scripts/sha256.html#src-code -->
-<!-- Noticeably faster then the bitcoinjs one. -->
-<!-- Note I removed the `export` line at the end to avoid modules. -->
-<script  src="js/sha256.js" ></script>
 
 <script>
 
@@ -285,6 +280,8 @@
     // All Globals here so we can keep track of them
     var network;        // Test or Main
     var keyPair;        // User's keypair
+
+    const bitcoinDataServer = 'ws://localhost';     // We connect here with a websocket to get live updates
 </script>
 
 <script>
@@ -590,6 +587,36 @@
         return b.slice(0,o);
     }
 
+    function processWebsocketData(b) {
+
+        const lastBlockAgeSecs = b.readUInt16LE( 0 );
+        const nbits            = b.readUInt32LE( 2 );
+        const lastBlockHash    = b.slice( 6 );
+
+        console.log("Age:"+lastBlockAgeSecs);
+        console.log("nbits:"+nbits.toString(16));
+        console.log("last hash len:"+lastBlockHash.length);
+        console.log("last hash:"+lastBlockHash.toString("hex"));
+
+    }
+
+    // Open connection to server
+    ws = new WebSocket( bitcoinDataServer );
+    ws.binaryType = "arraybuffer";
+
+    ws.onopen = () => {
+        console.log('Websocket: Connection opened!');
+    }
+    ws.onmessage = ({ data }) => {
+        const b = bitcoinjs.buffer.Buffer.from( data );
+        console.log('Websocket: received '+ b.length +'bytes');
+        processWebsocketData(b);
+        ws.send( bitcoinjs.buffer.Buffer.from("49b024a553abf2a23d41ea04e2d64d4e5a33039c86e739299ec13df10e9e7859","hex").reverse() );
+    }
+    ws.onclose = function() {
+        console.log('Websocket: Connection closed!');
+        ws = null;
+    }
 
     let b = bitcoinjs.buffer.Buffer( 256 );       // Oversize for now
     let o = 0;

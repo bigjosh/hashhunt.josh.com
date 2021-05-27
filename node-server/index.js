@@ -1,38 +1,87 @@
-const port = 80;  // Port to listen for connections on
-const express = require('express');     // Webserver
-const app = express();
+const websocketPort = 80;  // Port to listen for connections on
+const httpPort = 81;       // Used to let bitcoind contact use on blocknotify events
 
-// Next set up ws to handle the WebSockets
-// https://www.npmjs.com/package/express-ws
-// Seems like we must do this first before adding other `use`s.
-const ws = require('express-ws') (app);
+const blockSubmitCommandTemplate = "bitcoin-cli.exe submitblock ${block}";  // Passed to exec to submit a found block
 
-app.use(express.static( 'express_static'));          // Serve static files from folder. https://expressjs.com/en/starter/static-files.html
+const buffer = require('buffer');
 
-app.ws('/', function(ws, req) {
-    ws.on('message', function(msg) {
-        console.log("msg:"+msg);
-    });
-    ws.on('open', function() {
-        console.log("open");
+// Target is hardcoded for now becuase it is a pain to get from bitcoind.
+// getblocktemplate '{"rules": ["segwit"]}'
+// ...and answer is at the bottom.
+const lastHash = buffer.Buffer.from( "00000000000000000008c3fcd3a46bb1beb39dc8bdbad546d595e0b7d665fd20" , "hex" );
+let nbits = 0x170b3ce9;
+let lastblockTimeSecs = Date.now()/1000;
+
+// Biolerplate from https://www.npmjs.com/package/ws#simple-server
+
+const WebSocket = require('ws');
+
+const wss = new WebSocket.Server({ port:websocketPort });
+
+// returns a buffer with the info a new connections needs to start up
+// 32 bytes - previous hash
+// 4 bytes - nbits (difficulty)
+// 2 bytes - including seconds since last block
+
+function startupinfo() {
+    const nowSecs = Date.now()/1000;
+    const b = buffer.Buffer.alloc( 2 + 4 + 32);
+    b.writeUInt16LE(  nowSecs - lastblockTimeSecs , 0 )
+    b.writeUInt32LE( nbits , 2 );
+    lastHash.copy( b , 6 );                 // So ugly. Where is my b.writeBuffer() ?
+    return b;
+}
+
+// Submit a block to the local bitcoind using the cli
+
+function submitblock( b ) {
+    const commandline = blockSubmitCommandTemplate.replace( "${block}" , b.toString("hex") );
+    console.log("Submitting block command:"+commandline);
+}
+
+// New websocket connection - send startup info: time of last block, prev hash, target
+wss.on('connection', function connection(ws) {
+    ws
+    ws.send( startupinfo() );
+    ws.on('message', function incoming(message) {
+        console.log('received: %s', message);
+        submitblock(message);
     });
 });
 
-const express_server = app.listen( {port: port} );
+// Set up an HTTP server so we can get async notifications and share some
+// diagnostics.
+
+const http = require('http');
+var url = require('url');
+
+http.createServer(function (req, res) {
+    res.write('Hello World!\r'); //write a response to the client
+    // https://nodejs.org/api/url.html
+    // We must supply a base here or else URL will fail with "INVALID_URL" if request doesn't use host header. So stupid.
+    // https://stackoverflow.com/questions/48196706/new-url-whatwg-url-api
+    const myURL = new URL( req.url , "http://stupid.com");
+    const blockhash=myURL.searchParams.get("blockhash");
+    const diff=myURL.searchParams.get("diff");
+    console.log("diff:"+diff+"\r");
+    res.write('blockhash:'+blockhash+'\r');
+//    res.write('diff:'+diff+'\r');
+//    res.write('target:'+diffToTarget(25046487590083.27) +'\r');
+//    res.write('target:'+diffToTarget(diff) +'\r');
+    res.end();
+}).listen( httpPort );
 
 
-// Connect ws to handle the websocket upgrade event
+
+// Whenever bitcoin-core gets a new block, then calls the `blocknotify` batch file, which then makes
+// a `curl` call to us with the new blockhash and difficulty.
 
 
+function blockNotify( blockhash , diff ) {
 
-// wss.on('connection', function connection(ws) {
-//     ws.on('message', function incoming(data) {
-//         console.log( "got:" + data );
-//         wss.clients.forEach(function each(client) {
-//             if (client.readyState === ws.OPEN) {
-//                 client.send(data);
-//             }
-//         })
-//     })
-// })
-
+    wss.clients.forEach(function each(client) {
+        if (client.readyState === WebSocket.OPEN) {
+            client.send(data);
+        }
+    });
+}
