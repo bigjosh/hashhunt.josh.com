@@ -3,11 +3,8 @@
   <component name="ChangeListManager">
     <list default="true" id="95c52d8f-2933-4813-ae80-33e226eb8627" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/node-server/express_static/chat.html" beforeDir="false" afterPath="$PROJECT_DIR$/node-server/express_static/chat.html" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/node-server/express_static/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/node-server/express_static/index.html" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/node-server/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/node-server/index.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/node-server/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/node-server/package-lock.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/node-server/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/node-server/package.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -28,7 +25,7 @@
   <component name="HighlightingSettingsPerFile">
     <setting file="file://$PROJECT_DIR$/node-server/index.js" root0="SKIP_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/node-server/express_static/chat.html" root0="SKIP_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/node-server/express_static/index.html" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/node-server/express_static/index.html" root0="SKIP_INSPECTION" />
   </component>
   <component name="ProjectId" id="1slzC13RAtAB4PplLLrGgiRmcvC" />
   <component name="ProjectViewState">
@@ -60,7 +57,7 @@
       <updated>1621461836186</updated>
       <workItem from="1621461840292" duration="5138000" />
       <workItem from="1621484517312" duration="12000" />
-      <workItem from="1621967618843" duration="29112000" />
+      <workItem from="1621967618843" duration="70864000" />
     </task>
     <servers />
   </component>

@@ -5,12 +5,10 @@ const blockSubmitCommandTemplate = "bitcoin-cli.exe submitblock ${block}";  // P
 
 const buffer = require('buffer');
 
-// Target is hardcoded for now becuase it is a pain to get from bitcoind.
-// getblocktemplate '{"rules": ["segwit"]}'
-// ...and answer is at the bottom.
 const lastHash = buffer.Buffer.from( "00000000000000000008c3fcd3a46bb1beb39dc8bdbad546d595e0b7d665fd20" , "hex" );
 let nbits = 0x170b3ce9;
-let lastblockTimeSecs = Date.now()/1000;
+let lastblockTimeSecs = Date.now()/1000;        // Now is UTC in ms.
+let blockHeight = 1976988;
 
 // Biolerplate from https://www.npmjs.com/package/ws#simple-server
 
@@ -26,9 +24,11 @@ const wss = new WebSocket.Server({ port:websocketPort });
 function startupinfo() {
     const nowSecs = Date.now()/1000;
     const b = buffer.Buffer.alloc( 2 + 4 + 32);
-    b.writeUInt16LE(  nowSecs - lastblockTimeSecs , 0 )
-    b.writeUInt32LE( nbits , 2 );
-    lastHash.copy( b , 6 );                 // So ugly. Where is my b.writeBuffer() ?
+    b.writeUInt32LE( nowSecs , 0 );
+    b.writeUInt32LE( blockHeight , 4 );
+    lastHash.copy( b , 4+4 );                 // So ugly. Where is my b.writeBuffer() ?
+    b.writeUInt32LE( nbits , 4+4+32 );
+    b.writeUInt16LE(  nowSecs - lastblockTimeSecs , 4+4+32+4 );
     return b;
 }
 
