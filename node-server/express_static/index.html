@@ -477,7 +477,14 @@
         window.prevHash = Buffer.fromHexString("0000a23341f706b1c255456d432e6bd002e6a829fe209e47e2751317cb7e0edc");
         window.nowSecs = 1620115082;
         window.nbits = 0x170b3ce9;
+        window.nbits = 0x200fffff;      // For testing, 1:16 chance of winning.
         window.blockheight = 5;
+
+        // For REGNET testing
+        window.prevHash = Buffer.fromHexString("0000a23341f706b1c255456d432e6bd002e6a829fe209e47e2751317cb7e0edc");
+        window.nowSecs = 1620115082;
+        window.blockheight = 5;
+        window.nbits = 0x207fffff;
 
         // TODO: Have a webworker try all nonces in the backround between clicks... or would that be karmic cheating?
         let nonce =0;
@@ -553,9 +560,26 @@
         //     }
         // }
 
-        if (blockHash.toHexString() < target.toString()) {
-            // We have a winner
-            alert("winner!");
+        if (blockHash.toHexString() < target.toHexString()) {
+            // We have a winner. Time is of the essecence, we must get the soolved block up to the server and onto the
+            // network withouth delay!
+
+            console.log("Looks like you may have won this round, I am sumbitting your solution...");
+
+            // Serialize the full block with the coinbase transaction in the format that bitcoind "submitblock" takes it
+            // https://developer.bitcoin.org/reference/block_chain.html#serialized-blocks
+            serializedFullBlock =  serializeBlockWithTX( block , coinbaseTX);
+
+            // Belt - Send to our websocket server, which will get it to a full node lickity split...
+            submitBlockToServer( serializedFullBlock );
+
+            // Suspenders - Send to our dedicated independant node that that does nothing but listen for these, just in case...
+            // TODO:
+
+            // Now create and show a winner info page. Do it locally to avoid any network problems or delays.
+            // https://www.w3schools.com/jsref/met_win_open.asp
+            var myWindow = window.open("", "Hashhunt winning info page" );
+            myWindow.document.write("<p>This is 'MsgWindow'. I am 200px wide and 100px tall!</p>");
 
         } else {
             console.log("Sorry, try again.");
@@ -849,19 +873,19 @@
         // String works well for this since 1 letter=1 nibble
         const targetHexString = target.toHexString();
 
-        // We start assuming all nibbles are free and
+        // We know that if a string of "f" digits is less than the hex of the target, then those digits can be anything
+        // and still be less than the target since "f" is the highest digit.
 
-        let nibbleCount = 0;
-        let freeNibbleCount = 32*2;         // nibbles == bytes*2
+        // Will terminate if target is all 'f' because we use less than in the compare and so all 'f' will not be less than
+        // all 'f' (it will be equal to).
 
-        // Each leading zero in the target must also be a zero in a winnning hash
+        let freeNibbleString = "f";
 
-        while ( freeNibbleCount && targetHexString.charAt( nibbleCount ) == '0' ) {
-            nibbleCount++;
-            freeNibbleCount--;
+        while ( freeNibbleString.padStart( 64 , '0') < targetHexString  ) {
+            freeNibbleString+='f';
         }
 
-        return freeNibbleCount;        // Since each char in the hex string is a nibble, we can just take the len
+        return freeNibbleString.length-1;        // Since each char in the hex string is a nibble, we can just take the len
 
     }
 
@@ -1023,6 +1047,10 @@
 
         // TODO: Refresh board
 
+    }
+
+    function submitBlockToServer( serializedBlock ) {
+        // TODO
     }
 
     // TODO: Serve static files also https://stackoverflow.com/a/20920463/3152071
