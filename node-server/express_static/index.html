@@ -9,7 +9,7 @@
 
     Why? I did it for you. So that you, gentle reader, could directly and independently verify that all
     Hash Hunt prize claims are absolutely and factually true. Code cannot lie, and so here is- naked and
-    unminified for your thoughtful inspection.
+    unminified for your inspection.
 
     By the time you get to the end of this file, you will see that...
 
@@ -19,7 +19,7 @@
        will be able to claim their winnings directly using any bitcoin wallet that accepts a WIF formatted
        private key (all of them).
 
-    Thank you for your time and participation in this experiment.
+    Thank you for your time and thoughtful participation in this grand experiment.
 
     -josh
 
@@ -92,6 +92,16 @@
 
     table {
         table-layout: fixed;
+    }
+
+    /* https://stackoverflow.com/a/27622231/3152071 */
+    .disabled {
+        cursor: not-allowed;
+        pointer-events: none;
+
+        /*Button disabled - CSS color class*/
+        color: #c0c0c0;
+        background-color: #ffffff;
     }
 
 </style>
@@ -265,7 +275,7 @@
 <script src="js/bitcoinjs.min.js">
 </script>
 
-<!--- MAKE BUFFER INTO THE BUFFER WE ALWAYS WANTED -->
+<!--- MAKE BUFFER INTO THE BUFFER WE ALWAYS WANTED BUT NEVER GOT FOR NODEMAS -->
 
 <script>
     var Buffer = bitcoinjs.buffer.Buffer;       // Shortcut since we use Buffers everywhere
@@ -340,13 +350,13 @@
     //  64 letters (in a human readable hex string)
 
     // From human readable hex string with most significant digit first to buffer with least significant digit first. No padding.
-    Buffer.fromHumanHexString = function (s) {
+    Buffer.fromHexString = function (s) {
         return Buffer.from( s ,"hex").asReversed();     // // *2 because two chars per byte in a hex string
     }
 
 
     // To human readable hex string with most significant digit first. No padding.
-    Buffer.prototype.toHumanHexString = function () {
+    Buffer.prototype.toHexString = function () {
         return this.asReversed().toString("hex");
     }
 
@@ -387,19 +397,20 @@
     }
 
     // Shortcut to make a lazy mans's dynamic buffer. We can then later trim it to size with slice().
-    // TODO: Rename Buffer.newOversizeBuffer()
-    function makeOversizedBuffer()
+
+    Buffer.makeOversizedBuffer = function ()
     {
         return Buffer(256);
     }
 
 </script>
 
+<!--- MEAT OF THE CODE RUNS HERE WHENEVER A KENO CELL IS CLICKED. WE UPDATE THE EXTRANONCE, GENERATE A BLOCK, AND CHECK THE NEW HASH FOR A WIN. --->
 
 <script>
 
     // Set wheel w to the given value. 0=Hash, others=fruits
-    // Note we keep 1:1 mapping of nibble to same fruit so people can see and learn patterns.
+    // Note we keep 1:1 mapping of nibble to same fruit so players can see and learn the patterns.
     function setWheel(w,v) {
 
         let cell = window.wheelstablecells[w];
@@ -415,7 +426,6 @@
         }
 
         cell.innerHTML = t;
-        //console.log( "wheel="+w+" t="+t + "v=" +v);
     }
 
     // Set wheel w to the "free hash" icon.
@@ -440,33 +450,14 @@
         }
     }
 
-    // Set all the wheels according to the leading bytes of v
-    // v is a string of hex digits at least `difficulty` in length
-    function setwheels(v) {
-        for( let i=0; i<window.WHEEL_TABLE_CELLS;i++ ) {
-            setWheel(i, Number.parseInt( v[i] , 16  ) );
-        }
-
-    }
-
-    function toBin( b ) {
-        let s="";
-        for( let i =0 ; i< bits.length; i++ ) {
-            s = ( b[i] ? "1":"0" ) + s;
-        }
-        return s;
-    }
-
-    // Updates the wheels in the DOM and then checks for winner
-    // In case of a winning pattern, sumbits and redirects to winner instructions page
+    // Updates the wheels in the DOM and then checks for winner.
+    // In case of a winning pattern, sumbits it and then redirects to a winner instructions page.
     // Again I remind you that this is written for clarity and not efficiency so massive ammounts of redundant work.
     // Remember that we shall never beat the machines at thier own game so instead we must depend on our wits rather than speed.
 
     function updateWheels() {
 
-        console.log("in updatewheels");
-
-        // First calculate the nonce bits from the current keno table selections
+        // First calculate the extranonce bytes from the current keno table selections. Each number is one bit.
         const kenoBitCount = window.KENO_TABLE_COLS * window.KENO_TABLE_ROWS;
         let kenoBitsBuffer = Buffer( Math.ceil( kenoBitCount/8) );     // 8 bits per byte. JS should really have a bit array. :/
 
@@ -478,12 +469,12 @@
             }
         }
 
-        console.log("keno bits extraNonce:"+ kenoBitsBuffer.toHumanHexString());
+        console.log("extraNonce ="+ kenoBitsBuffer.toHexString());
 
         // Next generate a block with the keno bits as the extranonce
 
          // CANNED DATA TO TEST WHEN NO WEBSOCKET DATA AVAILABLE
-        window.prevHash = Buffer.fromHumanHexString("0000a23341f706b1c255456d432e6bd002e6a829fe209e47e2751317cb7e0edc");
+        window.prevHash = Buffer.fromHexString("0000a23341f706b1c255456d432e6bd002e6a829fe209e47e2751317cb7e0edc");
         window.nowSecs = 1620115082;
         window.nbits = 0x170b3ce9;
         window.blockheight = 5;
@@ -491,12 +482,12 @@
         // TODO: Have a webworker try all nonces in the backround between clicks... or would that be karmic cheating?
         let nonce =0;
 
-        // We put the bits selected by the user in the keno table into the extranonce in the coinbase.
-        // These bits will show up (double hashed with the rest of the coinbase TX) in the merkleroot when then gets included in the blockhash
+        // We put the bits selected by the user into the extranonce in the coinbase transaction.
+        // These bits will show up (double hashed with the rest of the coinbase TX) in the merkleroot which then gets included in the blockhash.
         // It would be better if we could put them at the end of the block header so they only got transformed by s single
-        // hashing, but these days just 32 bits of nonce are very unlikely to contain a solution. Hopefully users will be
-        // able to model the full transform from coinbaseTX->merkleroot->headerhash (which has at least 4 bit scrambles in it)
-        // as a single (complicated) funtion.
+        // hashing, but these days just 32 bits of nonce are very unlikely to contain a solution. Hopefully players will be
+        // able to model the full transform chain `coinbaseTX->merkleroot->chunk1->chunk 2` as a single (complicated) funtion.
+
         const coinbaseTX =  makeCoinbaseTX( kenoBitsBuffer , window.blockheight , window.keyPair.publicKey );
         const merkleRoot =  bitcoinjs.crypto.sha256( bitcoinjs.crypto.sha256( coinbaseTX ) );       // Transactions are double hashed in merkle tree.
 
@@ -504,11 +495,11 @@
 
         // Here is test case, mostly to make sure we got all the byte ordering right.
         // Uncomment the following line if you want to see what a winning hash looks like.
-        // (Don't get exited, it was already on the blockchain at https://btc.com/00000000000000000008bc0f0af14c9036f8c68a840404ce365554c8277e9e67 )
         // let block = makeBlockHeader( 0x2fffe004 , Buffer.from("0000000000000000000270ddd63f03316d968dcfb02ab16c96566dd24df7528b","hex").asReversed() ,  1622301620 , 0x170b3ce9 , Buffer.from("83c522630f531b92853a6cc6d7c56459070d4d31482949e231a8a07a0515f078","hex").asReversed() , 2986275945);
+        // (Don't get exited, it was already on the blockchain at https://btc.com/00000000000000000008bc0f0af14c9036f8c68a840404ce365554c8277e9e67 )
 
         // Remember the bitcoinjs hash uses LE byte order, so this must be reversed for human reading. Zeros should be at the *end* (high bytes) of this buffer.
-        const blockHash = bitcoinjs.crypto.hash256(block);
+        let blockHash = bitcoinjs.crypto.hash256(block);
 
         // As difficulty goes up, we need more wheels to come up hashes. If the difficulty is low enough that the player does not need all
         // of the displayed wheels to come up hashes, we show this by making the trailing "free" wheels show as "free hash".
@@ -517,36 +508,24 @@
 
         const freeNibleCount = freeNibblesInTarget(target); // How many of the 64 nibbles in the target are "free" (unconstrained)
 
-        console.log("free nibs="+freeNibleCount);
-
-        const zeroNibbleCount = 64 - freeNibleCount;        // The number of leading nibbles that must be 0 to insure that we are  below target. This is the number of wheels in play.
-
-        console.log( "zero nibs="+zeroNibbleCount);
+        const zeroNibbleCount = 64 - freeNibleCount;        // The number of leading nibbles that must be 0 to insure that we are below target. This is the number of wheels in play.
 
         // Now update the wheels
 
-        // We will show highest nibbles first on the wheels (first wheel is highest byte of hash- I think intuitively correct)
-        // This way conceptually we are only showing the higher significance nibbles of the has that actually matter.
+        // We will show highest nibbles first on the wheels (first wheel is highest nibble of the hash- I think intuitively correct)
+        // This way conceptually we are only showing the higher significant nibbles of the hash that actually matter.
         // We could show all 64 wheels (nibbles, which is the full 32 bytes/256 bits in the hash) with all the lower ones as "free"
         // to be complete, but that would be a waste of screen space since they never change inside a round.
+
+        const blockhashHexString = blockHash.toHexString();       // Use the hex string becuase it is easier and it is in correct byte order (highest first)
 
         for( let w =0; w < WHEEL_TABLE_CELLS; w++ ) {
 
             if (w<zeroNibbleCount) {
                 // This wheel is not FREE, so must come up a hash (zero) to insure winning play
 
-                const wheelByte = blockHash[w];
-                let wheelNibble;
-
-                // Extract the nibble, most significant nibble first.
-                if (w & 0x01) {
-                    wheelNibble = wheelByte & 0x0f;
-                } else {
-                    wheelNibble = wheelByte >> 4;
-                }
-
-                // Display wheel landing value on webpage
-                setWheel(w, wheelNibble);
+                // Display wheel landing value on webpage. Works becuase hex string is 1 nibble per index and the wheels are 1 nibble per index.
+                setWheel(w, parseInt( blockhashHexString[w] , 16 ) );
             } else {
                 // This is a free hash. (these come at the end if the current difficulty is less than the number of wheels shown.)
                 setWheelFree(w);
@@ -554,54 +533,42 @@
 
         }
 
-        console.log("target="+target.toHumanHexString());
-        console.log("blhash="+blockHash.toHumanHexString());
+        console.log("target     ="+target.toHexString());
+        console.log("blockhash  ="+blockHash.toHexString());
 
-        //console.log("nonce= " + nonce + " blockhash:" + blockHash.asReversed().toString("hex"));
-
-        // do {
+        // // This miniminer gives you the edge. You can pick if/how much to cheat. But remeber that, like all cheats,
+        // // using it is futile and destroys any true chance of winning. If someone wins here then it is divine intervention,
+        // // which forces the question - why didn't god intervene on the main spin?
+        // while ( nonce < 256 ) {
         //
         //     nonce++;
         //
-        //     block = makeBlock( window.version , window.prevHash ,  window.nowSecs , window.nbits , merkleRoot , nonce);
+        //     newblock = makeBlockHeader(window.version, window.prevHash, window.nowSecs, window.nbits, merkleRoot, nonce);
+        //     newblockHash = bitcoinjs.crypto.hash256(newblock);
         //
-        //     blockHash = bitcoinjs.crypto.hash256(block);
-        //
-        //     document.getElementById('status').innerText="nonce="+nonce;
-        //
-        // } while ( blockHash[31] != 0x00 ||  blockHash[30] != 0x00 || blockHash[29] != 0x00 || blockHash[28] != 0x00 );
+        //     if (newblockHash.toHexString() < blockHash.toHexString()) {
+        //         block = newblock;
+        //         blockHash = newblockHash;
+        //         console.log("blockhash  ="+blockHash.toHexString()+" nonce="+nonce.toString(16).padStart(8,'0'));
+        //     }
+        // }
 
-        console.log("nonce= " + nonce + " blockhash:" + blockHash.toString("hex"));
+        if (blockHash.toHexString() < target.toString()) {
+            // We have a winner
+            alert("winner!");
 
-        console.log( "blockhash:" + blockHash.toString("hex") );
+        } else {
+            console.log("Sorry, try again.");
+        }
 
         var saveblock = block;
         var savecb = coinbaseTX;
 
-        for( let i=0; i<WHEEL_TABLE_CELLS; i++) {
-
-
-        }
-        //TODO: Fill in
-        //
-        // var out = bitcoinjs.crypto.sha256(Buffer(hasstr)).toString("hex");
-        // //var out = Sha256.hash(Sha256.hash( hasstr));
-        // //console.log( "hex="+ hasstr +" out="+out);
-        //
-        // setwheels(out);
-
-        // Maybe nulling these helps javascript GC them and all thier included slices faster?
-        //block=null;
-        //coinbaseTX=null;
-        //saveblock = null;
-        //savecb=null;
     }
-
 
     // Toggle the cell (button) selected state
 
     function kenoTableClickHandler(cell) {
-        console.log("kenoclick");
 
         if (cell.classList.contains( "kenocell_selected" )) {
             cell.classList.remove("kenocell_selected");
@@ -611,7 +578,6 @@
 
         updateWheels();
 
-        console.log("exit kenclickhandler");
     }
 
 </script>
@@ -645,8 +611,6 @@
 <!--- UPDATES WHEELS TABLE AND SUBMITS BLOCK IF WINNING SOLUTION FOUND -->
 
 <script>
-
-
 
     // Now lets try adding a coinbase transaction to the block
     // Here is an empty block we can use as a template:
@@ -726,29 +690,23 @@
     // Returns a buffer with the BIP-34 "push blockheight" that must be at the begining of every coinbase unlock script
 
     function coinbaseUnlockScript( blockheight , extraNonce ) {
-        let b = makeOversizedBuffer();     // This is lazy, but I am bad at counting
+        let b = Buffer.makeOversizedBuffer();     // This is lazy, but I am bad at counting
         let o=0;
 
         // We need to push the block number on the stack as per BIP-0034
         let pushBlockheightOps = pushValueScriptOps(blockheight);
         o=b.writeBuffer(pushBlockheightOps,o);
 
-        console.log("script:" + blockheight );
-        console.log( b.slice(0,o).toString("hex"));
-
-        // Here we get to stick in a little message in the coinbase
+        // Here we get to stick in a little promo in the coinbase
         o=b.writeBuffer( Buffer.from("/Play Hashhunt.josh.com/") , o );
-        console.log("with mesage:" + blockheight );
         o=b.writeBuffer( extraNonce , o );         // These nonce bits will hopefuly percolate into a nice merkle hash and then into a nice block hash
-
-        console.log( b.slice(0,o).toString("hex"));
 
         return b.slice(0,o);            // Trim buffer to actual size
     }
 
     // Creates a coinbase input transaction. Takes blockheight as a num and extranonce as buffer. Returns a buffer.
     function coinbaseInputTx(blockheight,extranonce) {
-        let b = makeOversizedBuffer();
+        let b = Buffer.makeOversizedBuffer();
         let o=0;
         o=b.fillByte( 0x00 , 32 , o  );      // source hash - null by convention
         o=b.writeUInt32LE(0xffffffff,o);     // source index - -1 by convention
@@ -761,17 +719,13 @@
 
         o=b.writeUInt32LE( 0xffffffff ,o);    // Sequence number - seems to always be -1
 
-        console.log("coinbase:");
-        console.log("height:" + blockheight );
-        console.log( b.slice(0,o).toString("hex"));
-
         return b.slice(0,o);                // Trim buffer to actual size
     }
 
     // Creates a single P2PK locking script
     // Takes a buffer with the public key, returns a buffer
     function outScript( pubkey ) {
-        let b = makeOversizedBuffer();
+        let b = Buffer.makeOversizedBuffer();
         let o = 0;
         // Simplest lock script is to push a publick key and the OP_CHECK sig
         let pushPKops = pushBufferScriptOps( pubkey );
@@ -785,7 +739,7 @@
     // Pubkey is a buffer with the public key.
     // Returns a buffer.
     function P2PKOut( value , pubkey ) {
-        let b = makeOversizedBuffer();
+        let b = Buffer.makeOversizedBuffer();
         let o = 0;
         o=b.writeUInt32LE(value , o);           // Write the lower 32 bits of value we are sending.
         o=b.writeUInt32LE( 0 , o);              // Full field is 64 bits, so write zeros in upper 32 bits.
@@ -799,7 +753,7 @@
     // Pubkey is a buffer public key
     // Returns a buffer.
     function P2PKHOutScript( pubkey ) {
-        let b = makeOversizedBuffer();     // This is lazy, but I am bad at counting
+        let b = Buffer.makeOversizedBuffer();     // This is lazy, but I am bad at counting
         let o = 0;
         // Below is the standard P2PKH script: OP_DUP OP_HASH160 <pubKeyHash> OP_EQUALVERIFY OP_CHECKSIG
         // Helpful for debugging this.. https://siminchen.github.io/bitcoinIDE/build/editor.html
@@ -825,19 +779,13 @@
     // Returns a buffer.
 
     function P2PKHOutTx( value , pubkey ) {
-        let b = makeOversizedBuffer();
+        let b = Buffer.makeOversizedBuffer();
         let o = 0;
 
         o=b.writeUInt32LE( value, o);               // Write the lower 32 bits of value in satoshis
         o=b.writeUInt32LE( 0 , o);                  // Full field is 64 bits, so write zeros in upper 32 bits.
 
-        console.log("value:")
-        console.log( value.toString( 16) );
-
         let outTxScript = P2PKHOutScript( pubkey );
-
-        console.log("outTxScript:")
-        console.log( outTxScript.toString("hex") );
 
         o=b.writeVarint( outTxScript.length , o );              // Out script len
         o=b.writeBuffer( outTxScript , o );
@@ -865,7 +813,7 @@
         const expString = paddedSigString.slice( exponent*2, (32+exponent)*2);
         // Now we move the point to the right exp bytes
 
-        return Buffer.fromHumanHexString( expString );     // Put back in bitcoin LE format
+        return Buffer.fromHexString( expString );     // Put back in bitcoin LE format
     }
 
     /*
@@ -899,7 +847,7 @@
     function freeNibblesInTarget (target) {
 
         // String works well for this since 1 letter=1 nibble
-        const targetHexString = target.toHumanHexString();
+        const targetHexString = target.toHexString();
 
         // We start assuming all nibbles are free and
 
@@ -924,9 +872,8 @@
     // Check here: https://live.blockcypher.com/btc/decodetx/
 
     function makeCoinbaseTX( extranoce , blockheight , publicKey ) {
-        console.log("bh="+blockheight);
 
-        let b = makeOversizedBuffer();
+        let b = Buffer.makeOversizedBuffer();
         let o = 0;
 
         o = b.writeUInt32LE(0x01, o);   // Version number. Currently 0x01 based on looking at recent coinbase transactions.
@@ -936,9 +883,6 @@
         let inTx = coinbaseInputTx(blockheight,extranoce);
         o = b.writeBuffer(inTx, o);
 
-        console.log("after cb:")
-        console.log(b.slice(0, o).toString("hex"));
-
         // Then outputs
         o = b.writeUInt8(0x01, o);     // Output count
         let outTx = P2PKHOutTx(5 * 1e8, publicKey);
@@ -947,9 +891,6 @@
         o = b.writeUInt32LE(0x00000000, o);        // Locktime
 
         var coinbaseTransaction = b.slice(0, o);    // Trim buffer to actual size
-
-        console.log("TX:");
-        console.log(coinbaseTransaction.toString("hex"));
 
         return coinbaseTransaction;
     }
@@ -970,7 +911,7 @@
         // I know much of this could be precomputed for efficiency, but I am going for clarity here
         // and we only need to run faster than user can click.
 
-        const b = makeOversizedBuffer();
+        const b = Buffer.makeOversizedBuffer();
         let o=0;
 
         // https://developer.bitcoin.org/reference/block_chain.html
@@ -1006,7 +947,7 @@
     // Both inputs are buffers
     function serializeBlockWithTX( block , coinbaseTX ) {
 
-        let serializedblockBuffer = makeOversizedBuffer();
+        let serializedblockBuffer = Buffer.makeOversizedBuffer();
         o=0;
 
         o=serializedblockBuffer.writeBuffer( block , o );
