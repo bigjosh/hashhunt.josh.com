@@ -246,10 +246,160 @@
 
 </script>
 
+<!-- IMPORT BITCOIN & NODE.JS BUFFER STUFF -->
+
+<!--
+    This is a Browserfy'ed version of the popular bitcoinjs package.
+    To verify it is trustworthy for yourself, check out /js/bitcoinjs.MD
+    We only use it to generate the public ECSDA key and do some formatting.
+    Sorry, I could not bring myself to write this stuff myself in Javascript. If
+    you know a clean alternative I can use, please suggest it. I do not
+    want to use the subtlecrypto stuff because it has the absurd requirement
+    that it will only generate keys when loaded over SSL. This seems like a
+    deep misunderstanding of crypto. Please correct me if I am wrong.
+
+    We also pull in a Browserfied version of node's `Buffer` since the
+    bitcoinjs stuff needs it and we can also use it for our websocket data.
+-->
+
+<script src="js/bitcoinjs.min.js">
+</script>
+
+<!--- MAKE BUFFER INTO THE BUFFER WE ALWAYS WANTED -->
+
+<script>
+    var Buffer = bitcoinjs.buffer.Buffer;       // Shortcut since we use Buffers everywhere
+
+    // How can the API not come with this function?!
+    Buffer.prototype.writeBuffer = function ( b , o  ) {
+        return o+b.copy( this , o  );
+    }
+
+    // How can the API not come with this function?!
+    Buffer.prototype.writeUInt24LE = function ( x , o  ) {
+
+        let b2 = ((x >> 16) & 0xff);
+        let b1 = ((x >>  8) & 0xff);
+        let b0 = ((x >>  0) & 0xff);
+
+        o=this.writeUInt8( b0 , o );
+        o=this.writeUInt8( b1 , o );
+        o=this.writeUInt8( b2 , o );
+
+        return o;
+    }
+
+    // Write a bitcoin varint type
+    // Defined here https://developer.bitcoin.org/reference/transactions.html#compactsize-unsigned-integers
+    Buffer.prototype.writeVarint = function ( x , o  ) {
+
+        if ( x <= 252 ) {
+            o = this.writeUInt8(x, o);             // Small numbers are themselves
+        } else if (x <=0xffff) {
+            o = this.writeUInt8(0xfd, o);             // Prefix
+            o = this.writeUInt16LE(x, o);             // Prefix
+        } else if ( x<=  0xffffffff ) {
+            o = this.writeUInt8(0xfe, o);             // Prefix
+            o = this.writeUInt32LE(x, o);             // Prefix
+        } else if ( x<=  0xffffffffffff ) {
+            o = this.writeUInt8(0xff, o);             // Prefix
+            o = this.writeUInt24LE(x, o);             // Prefix
+            o = this.writeUInt8( 0, o);               // We only support up to 24 bits, fill top with 0
+        } else {
+            console.error( "Number too big in writeVarint:" + x );
+        }
+        return o;
+    }
+
+    // How can the API not come with this function?!
+    Buffer.prototype.fillByte = function ( b , c , o  ) {
+        while (c) {
+            o=this.writeUInt8( b , o );
+            c--;
+        }
+        return o;
+    }
+
+    // How can the API not come with this function?!
+    // Note that we can not just use the string reverse function becuase each byte in the buffer
+    // it two letters in the string, so String.reverse("123456") = "654321" whereas we need "563412".
+    Buffer.prototype.asReversed = function () {
+        let r = Buffer( this.length );
+
+        for( let s=0; s< this.length ; s++ ) {
+
+            r[(this.length-s)-1] = this[s];
+        }
+
+        return r;
+    }
+
+    // Some sized to remember. A bitcoinjs hash buffer length is
+    // 256 bits
+    //  32 bytes
+    //  64 letters (in a human readable hex string)
+
+    // From human readable hex string with most significant digit first to buffer with least significant digit first. No padding.
+    Buffer.fromHumanHexString = function (s) {
+        return Buffer.from( s ,"hex").asReversed();     // // *2 because two chars per byte in a hex string
+    }
+
+
+    // To human readable hex string with most significant digit first. No padding.
+    Buffer.prototype.toHumanHexString = function () {
+        return this.asReversed().toString("hex");
+    }
+
+    // Returns the nth bit where n=0 is the least significant bit as boolean
+    // Assumes buffer is binary data in little endian format like used by bitcoinjs
+    // Remember bitcoin buffers are lowest bit first!
+    Buffer.prototype.getBit = function( n ) {
+        const byte = Math.floor( n / 8 );
+        const subbit = n % 8;
+
+        if ( ( (this[byte] >> subbit) & 0x01 ) == 0x01 ) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    // Returns true if the buffer is less than the argument (also a buffer)
+    // Both buffers are LE so least significant byte first
+
+    Buffer.prototype.isLessThanLE = function( that ) {
+
+        if (this.length < that.length) {
+            return true;
+        }
+
+        if (this.length > that.length) {
+            return false;
+        }
+
+        // If strings are same length, then we can do a straight string compare between them.
+
+        // Convert both sides to padded BE hex string so we can directly compare them
+        const thisstring = this.asReversed().toString("hex");
+        const thatstring = that.asReversed().toString("hex");
+
+        return thisstring < thatstring ;      // Happens to work out with lexical comparision since "A">"9". *2 to convert from bytes to nibbles (hex chars).
+    }
+
+    // Shortcut to make a lazy mans's dynamic buffer. We can then later trim it to size with slice().
+    // TODO: Rename Buffer.newOversizeBuffer()
+    function makeOversizedBuffer()
+    {
+        return Buffer(256);
+    }
+
+</script>
+
 
 <script>
 
     // Set wheel w to the given value. 0=Hash, others=fruits
+    // Note we keep 1:1 mapping of nibble to same fruit so people can see and learn patterns.
     function setWheel(w,v) {
 
         let cell = window.wheelstablecells[w];
@@ -266,6 +416,28 @@
 
         cell.innerHTML = t;
         //console.log( "wheel="+w+" t="+t + "v=" +v);
+    }
+
+    // Set wheel w to the "free hash" icon.
+    function setWheelFree(w) {
+
+        let cell = window.wheelstablecells[w];
+
+        cell.classList.remove( "wheels_cell_hash");
+
+        // Overlay "#" on top of word "free", based on: https://tomduffytech.com/overlap-div-without-absolute-position/
+        // TODO: Make this look nicer in case difficulty ever goes down! :)
+        cell.innerHTML = '<div style="display: grid;"><div style="grid-column: 1; grid-row: 1; color: #64ff57; ">FREE</div><div style="grid-column: 1; grid-row: 1; ">#</div></div>';
+
+    }
+
+    // Clear all selections from kenotable and start fresh with question marks.
+    // Happens whenever a new round starts or we loose websocket connection.
+    function resetKenoTable() {
+        for (let cell of kenocells) {
+            cell.classList.remove("kenocell_selected");
+            cell.innerHTML = "❓";
+        }
     }
 
     // Set all the wheels according to the leading bytes of v
@@ -287,14 +459,16 @@
 
     // Updates the wheels in the DOM and then checks for winner
     // In case of a winning pattern, sumbits and redirects to winner instructions page
+    // Again I remind you that this is written for clarity and not efficiency so massive ammounts of redundant work.
+    // Remember that we shall never beat the machines at thier own game so instead we must depend on our wits rather than speed.
 
     function updateWheels() {
 
         console.log("in updatewheels");
 
-        // First calculate the nonce bits from the keno table selections
+        // First calculate the nonce bits from the current keno table selections
         const kenoBitCount = window.KENO_TABLE_COLS * window.KENO_TABLE_ROWS;
-        let kenoBitsBuffer = bitcoinjs.buffer.Buffer( Math.ceil( kenoBitCount/8) );     // 8 bits per byte. JS should really have a bit array. :/
+        let kenoBitsBuffer = Buffer( Math.ceil( kenoBitCount/8) );     // 8 bits per byte. JS should really have a bit array. :/
 
         for( let i=0; i<kenoBitCount; i++) {
             if (window.kenocells[i].classList.contains("kenocell_selected")) {
@@ -304,56 +478,105 @@
             }
         }
 
+        console.log("keno bits extraNonce:"+ kenoBitsBuffer.toHumanHexString());
+
         // Next generate a block with the keno bits as the extranonce
 
-        // console.log("bhh="+window.blockheight);
-        //
-        //
-        // const coinbaseTX =  makeCoinbaseTX( kenoBitsBuffer , window.blockheight , window.keyPair.publicKey );
-        // const merkleRoot =  bitcoinjs.crypto.sha256( bitcoinjs.crypto.sha256( coinbaseTX ) );
-        //
-        // // We have 80 bits of nonce, so we put them into the extranonce and use 0 for the block header nonce.
-        // // TODO: Have a webworker try all  nonces in the backround between clicks... or would that be karmic cheating?
-        //
-        // const block = makeBlock( window.version , window.prevHash ,  window.nowSecs , window.nbits , merkleRoot , 0x00000000 );
-        //
-        // // Now check to see if we have a winner!
-        //
-        // const blockHash = block.getHash();
-
-
-        // TEST MINER BELOW
-        window.prevHash = bitcoinjs.buffer.Buffer.from("0000a23341f706b1c255456d432e6bd002e6a829fe209e47e2751317cb7e0edc").asReversed();
+         // CANNED DATA TO TEST WHEN NO WEBSOCKET DATA AVAILABLE
+        window.prevHash = Buffer.fromHumanHexString("0000a23341f706b1c255456d432e6bd002e6a829fe209e47e2751317cb7e0edc");
         window.nowSecs = 1620115082;
-        window.nbits = 0x207fffff;
+        window.nbits = 0x170b3ce9;
         window.blockheight = 5;
 
+        // TODO: Have a webworker try all nonces in the backround between clicks... or would that be karmic cheating?
         let nonce =0;
 
-        let blockhash = "";
+        // We put the bits selected by the user in the keno table into the extranonce in the coinbase.
+        // These bits will show up (double hashed with the rest of the coinbase TX) in the merkleroot when then gets included in the blockhash
+        // It would be better if we could put them at the end of the block header so they only got transformed by s single
+        // hashing, but these days just 32 bits of nonce are very unlikely to contain a solution. Hopefully users will be
+        // able to model the full transform from coinbaseTX->merkleroot->headerhash (which has at least 4 bit scrambles in it)
+        // as a single (complicated) funtion.
+        const coinbaseTX =  makeCoinbaseTX( kenoBitsBuffer , window.blockheight , window.keyPair.publicKey );
+        const merkleRoot =  bitcoinjs.crypto.sha256( bitcoinjs.crypto.sha256( coinbaseTX ) );       // Transactions are double hashed in merkle tree.
 
-        do {
+        let block = makeBlockHeader(window.version, window.prevHash, window.nowSecs, window.nbits, merkleRoot, nonce);
 
-            const coinbaseTX =  makeCoinbaseTX( kenoBitsBuffer , window.blockheight , window.keyPair.publicKey );
-            const merkleRoot =  bitcoinjs.crypto.sha256( bitcoinjs.crypto.sha256( coinbaseTX ) );
+        // Here is test case, mostly to make sure we got all the byte ordering right.
+        // Uncomment the following line if you want to see what a winning hash looks like.
+        // (Don't get exited, it was already on the blockchain at https://btc.com/00000000000000000008bc0f0af14c9036f8c68a840404ce365554c8277e9e67 )
+        // let block = makeBlockHeader( 0x2fffe004 , Buffer.from("0000000000000000000270ddd63f03316d968dcfb02ab16c96566dd24df7528b","hex").asReversed() ,  1622301620 , 0x170b3ce9 , Buffer.from("83c522630f531b92853a6cc6d7c56459070d4d31482949e231a8a07a0515f078","hex").asReversed() , 2986275945);
 
-            // We have 80 bits of nonce, so we put them into the extranonce and use 0 for the block header nonce.
-            // TODO: Have a webworker try all  nonces in the backround between clicks... or would that be karmic cheating?
+        // Remember the bitcoinjs hash uses LE byte order, so this must be reversed for human reading. Zeros should be at the *end* (high bytes) of this buffer.
+        const blockHash = bitcoinjs.crypto.hash256(block);
 
-            const block = makeBlock( window.version , window.prevHash ,  window.nowSecs , window.nbits , merkleRoot , nonce);
+        // As difficulty goes up, we need more wheels to come up hashes. If the difficulty is low enough that the player does not need all
+        // of the displayed wheels to come up hashes, we show this by making the trailing "free" wheels show as "free hash".
 
-            // Now check to see if we have a winner!
+        const target = nbits2target( window.nbits );        // Compute our target
 
-            blockHash = bitcoinjs.crypto.hash256(block);
+        const freeNibleCount = freeNibblesInTarget(target); // How many of the 64 nibbles in the target are "free" (unconstrained)
 
-            console.log( "nonce= "+nonce+" blockhash:" + blockhash.toString("hex") );
+        console.log("free nibs="+freeNibleCount);
 
+        const zeroNibbleCount = 64 - freeNibleCount;        // The number of leading nibbles that must be 0 to insure that we are  below target. This is the number of wheels in play.
 
-            nonce++;
+        console.log( "zero nibs="+zeroNibbleCount);
 
-        } while ( blockHash[31]!=0 || blockHash[30] !=0 ||  blockHash[29]!=0 || blockHash[28] !=0  );
+        // Now update the wheels
 
-        console.log( "blockhash:" + blockhash.toString("hex") );
+        // We will show highest nibbles first on the wheels (first wheel is highest byte of hash- I think intuitively correct)
+        // This way conceptually we are only showing the higher significance nibbles of the has that actually matter.
+        // We could show all 64 wheels (nibbles, which is the full 32 bytes/256 bits in the hash) with all the lower ones as "free"
+        // to be complete, but that would be a waste of screen space since they never change inside a round.
+
+        for( let w =0; w < WHEEL_TABLE_CELLS; w++ ) {
+
+            if (w<zeroNibbleCount) {
+                // This wheel is not FREE, so must come up a hash (zero) to insure winning play
+
+                const wheelByte = blockHash[w];
+                let wheelNibble;
+
+                // Extract the nibble, most significant nibble first.
+                if (w & 0x01) {
+                    wheelNibble = wheelByte & 0x0f;
+                } else {
+                    wheelNibble = wheelByte >> 4;
+                }
+
+                // Display wheel landing value on webpage
+                setWheel(w, wheelNibble);
+            } else {
+                // This is a free hash. (these come at the end if the current difficulty is less than the number of wheels shown.)
+                setWheelFree(w);
+            }
+
+        }
+
+        console.log("target="+target.toHumanHexString());
+        console.log("blhash="+blockHash.toHumanHexString());
+
+        //console.log("nonce= " + nonce + " blockhash:" + blockHash.asReversed().toString("hex"));
+
+        // do {
+        //
+        //     nonce++;
+        //
+        //     block = makeBlock( window.version , window.prevHash ,  window.nowSecs , window.nbits , merkleRoot , nonce);
+        //
+        //     blockHash = bitcoinjs.crypto.hash256(block);
+        //
+        //     document.getElementById('status').innerText="nonce="+nonce;
+        //
+        // } while ( blockHash[31] != 0x00 ||  blockHash[30] != 0x00 || blockHash[29] != 0x00 || blockHash[28] != 0x00 );
+
+        console.log("nonce= " + nonce + " blockhash:" + blockHash.toString("hex"));
+
+        console.log( "blockhash:" + blockHash.toString("hex") );
+
+        var saveblock = block;
+        var savecb = coinbaseTX;
 
         for( let i=0; i<WHEEL_TABLE_CELLS; i++) {
 
@@ -361,20 +584,19 @@
         }
         //TODO: Fill in
         //
-        // var out = bitcoinjs.crypto.sha256(bitcoinjs.buffer.Buffer(hasstr)).toString("hex");
+        // var out = bitcoinjs.crypto.sha256(Buffer(hasstr)).toString("hex");
         // //var out = Sha256.hash(Sha256.hash( hasstr));
         // //console.log( "hex="+ hasstr +" out="+out);
         //
         // setwheels(out);
+
+        // Maybe nulling these helps javascript GC them and all thier included slices faster?
+        //block=null;
+        //coinbaseTX=null;
+        //saveblock = null;
+        //savecb=null;
     }
 
-    // Clear all selections from kenotable and start fresh.
-
-    function clearKenoTable() {
-        for (let cell of kenocells) {
-            cell.classList.remove("kenocell_selected");
-        }
-    }
 
     // Toggle the cell (button) selected state
 
@@ -388,25 +610,12 @@
         }
 
         updateWheels();
+
+        console.log("exit kenclickhandler");
     }
 
 </script>
 
-<!-- BITCOIN STUFF -->
-
-<!--
-    This is a Browserfy'ed version of the popular bitcoinjs package.
-    To verify it is trustworthy for yourself, check out /js/bitcoinjs.MD
-    We only use it to generate the public ECSDA key and do some formatting.
-    Sorry, I could not bring myself to write this stuff in Javascript. If
-    you know a clean alternative I can use, please suggest it. I do not
-    want to use the subtlecrypto stuff because it has the absurd requirement
-    that it will only generate keys when loaded over SSL. This seems like a
-    deep misunderstanding of crypto. Please correct me if I am wrong.
--->
-
-<script src="js/bitcoinjs.min.js">
-</script>
 
 <!-- GENERATE OUR BITCOIN PRIZE REDEMTION ADDRESS ONCE ON PAGELOAD. READS TESTMODE, SAVES KEYPAIR. --->
 
@@ -437,73 +646,6 @@
 
 <script>
 
-    // Shortcut to make an oversized buffer
-    function makeOversizedBuffer()
-    {
-        return bitcoinjs.buffer.Buffer(256);
-    }
-
-    // How can the API not come with this function?!
-    bitcoinjs.buffer.Buffer.prototype.writeBuffer = function ( b , o  ) {
-        return o+b.copy( this , o  );
-    }
-
-    // How can the API not come with this function?!
-    bitcoinjs.buffer.Buffer.prototype.writeUInt24LE = function ( x , o  ) {
-
-        let b2 = ((x >> 16) & 0xff);
-        let b1 = ((x >>  8) & 0xff);
-        let b0 = ((x >>  0) & 0xff);
-
-        o=this.writeUInt8( b0 , o );
-        o=this.writeUInt8( b1 , o );
-        o=this.writeUInt8( b2 , o );
-
-        return o;
-    }
-
-    // Write a bitcoin varint type
-    // Defined here https://developer.bitcoin.org/reference/transactions.html#compactsize-unsigned-integers
-    bitcoinjs.buffer.Buffer.prototype.writeVarint = function ( x , o  ) {
-
-        if ( x <= 252 ) {
-            o = this.writeUInt8(x, o);             // Small numbers are themselves
-        } else if (x <=0xffff) {
-            o = this.writeUInt8(0xfd, o);             // Prefix
-            o = this.writeUInt16LE(x, o);             // Prefix
-        } else if ( x<=  0xffffffff ) {
-            o = this.writeUInt8(0xfe, o);             // Prefix
-            o = this.writeUInt32LE(x, o);             // Prefix
-        } else if ( x<=  0xffffffffffff ) {
-            o = this.writeUInt8(0xff, o);             // Prefix
-            o = this.writeUInt24LE(x, o);             // Prefix
-            o = this.writeUInt8( 0, o);               // We only support up to 24 bits, fill top with 0
-        } else {
-            console.error( "Number too big in writeVarint:" + x );
-        }
-        return o;
-    }
-
-    // How can the API not come with this function?!
-    bitcoinjs.buffer.Buffer.prototype.fillByte = function ( b , c , o  ) {
-        while (c) {
-            o=this.writeUInt8( b , o );
-            c--;
-        }
-        return o;
-    }
-
-    // How can the API not come with this function?!
-    bitcoinjs.buffer.Buffer.prototype.asReversed = function () {
-        let r = bitcoinjs.buffer.Buffer( this.length );
-
-        for( let s=0; s< this.length ; s++ ) {
-
-            r[(this.length-s)-1] = this[s];
-        }
-
-        return r;
-    }
 
 
     // Now lets try adding a coinbase transaction to the block
@@ -524,7 +666,7 @@
 
     // Push a value on the stack using the most efficient OP code
     function pushValueScriptOps( d ) {
-        let b = bitcoinjs.buffer.Buffer( 256 );     // This is lazy, but I am bad at counting
+        let b = Buffer( 256 );     // This is lazy, but I am bad at counting
         let o=0;
 
         // All the op codes 1-75 mean "push x bytes on stack"
@@ -550,7 +692,7 @@
 
     // Push a buffer on the stack using the most efficient OP code
     function pushBufferScriptOps( s ) {
-        let b = bitcoinjs.buffer.Buffer( 256 );     // This is lazy, but I am bad at counting
+        let b = Buffer( 256 );     // This is lazy, but I am bad at counting
         let o=0;
 
         // All the op codes 1-75 mean "push x bytes on stack"
@@ -595,7 +737,7 @@
         console.log( b.slice(0,o).toString("hex"));
 
         // Here we get to stick in a little message in the coinbase
-        o=b.writeBuffer( bitcoinjs.buffer.Buffer.from("/Play Hashhunt.josh.com/") , o );
+        o=b.writeBuffer( Buffer.from("/Play Hashhunt.josh.com/") , o );
         console.log("with mesage:" + blockheight );
         o=b.writeBuffer( extraNonce , o );         // These nonce bits will hopefuly percolate into a nice merkle hash and then into a nice block hash
 
@@ -703,61 +845,83 @@
         return b.slice(0,o);
     }
 
-    // Returns a 256 bit/32 byte buffer of the target
+    // Returns a 256 bit/32 byte buffer of the target in bitcoin LE format
     // Based on https://developer.bitcoin.org/reference/block_chain.html#target-nbits
+    // Test here https://dlt-repo.net/bitcoin-target-calculator/
     // I think the string functions end up being more elegant than the typical math-based solutions, don't you?
 
     function nbits2target(nbits) {
         const significand = nbits & 0x00ffffff;
         const exponent = nbits >>> (8*3);
-        const targetStr =  (((significand.toString(16)).padStart( 6 , '0')).padEnd( exponent*2 , '0')).padStart( 32 * 2 , '0');      // *2 because two chars per byte in a hex string
-        return bitcoinjs.buffer.Buffer.from( targetStr, "hex");
+
+        // (all `*2` are becuase calcuations are in bytes, but in string 1 byte = 2 letter places)
+
+        const fixed6SigString =  (significand.toString(16)).padStart( 3*2 , "0");
+        //  a 3 digit (6 byte) hex string with a leading fixed point
+
+        const paddedSigString = ("00").repeat(32) + fixed6SigString + ("00").repeat(32) ;
+        // padded string has a fixed (hexa)decimal point after byte 32
+
+        const expString = paddedSigString.slice( exponent*2, (32+exponent)*2);
+        // Now we move the point to the right exp bytes
+
+        return Buffer.fromHumanHexString( expString );     // Put back in bitcoin LE format
     }
 
     /*
+    Test cases:
+    console.log( "target:" + nbits2target(0x01003456));     // 0x00
+    console.log( "target:" + nbits2target(0x01123456));     // 0x12
+    console.log( "target:" + nbits2target(0x02008000));     // 0x80
+    console.log( "target:" + nbits2target(0x05009234));     // 0x92340000
+    console.log( "target:" + nbits2target(0x04123456));     // 0x12345600
+
     console.log( "target:" + nbits2target(0x181bc330));
     console.log( "target:" + nbits2target(0x05009234));
     console.log( "target:" + nbits2target(0x04123456));
     */
 
     // Takes a  32 byte buffer with a target in bitcoin LE encoding and returns
-    // the number of hash wheels needed to win. (This is really the minimum number of leading
-    // 0 nibbles to be sure we are below the target.
+    // the number of "free" nibbles where "free" means unconstrained as in "free variable".
+    // So that means that the free least significant niblle in a hash can be any value and
+    // the hash is still guaranteed to be less than the target. Any nibbles more significant
+    // than these "free" once must be zero for a hash to win.
+
     // During actual game play we are generous and give the win to the player
-    // in the case where the last wheel is not a hash wheel but the hash result is actually below the target.)
+    // in the case where the last (least significant) wheel (nibble) is not a hash symbol (zero nibble)
+    // but the hash result is actually below the target.
 
-    function target2hashcount( b ) {
+    // Example:
+    // if target is  "0000000000000000000b3ce90000000000000000000000000000000000000000",
+    // then the hash "00000000000000000000ffffffffffffffffffffffffffffffffffffffffffff"
+    // is less than the target and so is *any* hash with any niblles where the ff's are.
 
-        // Remember bitcoin buffers are lowest bit first!
-        function getBitofBuffer( buffer , bit ) {
-            const byte = Math.floor( bit / 8 );
-            const subbit = bit % 8;
+    function freeNibblesInTarget (target) {
 
-            if ( ( (buffer[byte] >> subbit) & 0x01 ) == 0x01 ) {
-                return true;
-            } else {
-                return false;
-            }
+        // String works well for this since 1 letter=1 nibble
+        const targetHexString = target.toHumanHexString();
+
+        // We start assuming all nibbles are free and
+
+        let nibbleCount = 0;
+        let freeNibbleCount = 32*2;         // nibbles == bytes*2
+
+        // Each leading zero in the target must also be a zero in a winnning hash
+
+        while ( freeNibbleCount && targetHexString.charAt( nibbleCount ) == '0' ) {
+            nibbleCount++;
+            freeNibbleCount--;
         }
 
-        let zerobitcount=0;
+        return freeNibbleCount;        // Since each char in the hex string is a nibble, we can just take the len
 
-        while ( getBitofBuffer( b , zerobitcount ) == false ) {
-            zerobitcount++;
-        }
-
-        // Zerobitcoin now holds the number of leading 0 bits in the buffer
-        console.log("zero count:"+zerobitcount);
-
-        let hashcount = Math.ceil( zerobitcount  / 4);        //Count zero nibbles needed, rounding up to catch if the final one is partially zero.
-
-        return hashcount;
     }
 
     // Make a coinbase transaction.
     // extranonce is a buffer
     // blockheight is the heigh of the block this will be in (BIP-34)
     // public key is a buffer to send the coinbase reward to as P2PKH transaction.
+    // Check here: https://live.blockcypher.com/btc/decodetx/
 
     function makeCoinbaseTX( extranoce , blockheight , publicKey ) {
         console.log("bh="+blockheight);
@@ -801,7 +965,7 @@
 
     // Returns a buffer
 
-    function makeBlock( version , prevHash , timestamp , nbits , merkleRoot , nonce ) {
+    function makeBlockHeader(version, prevHash, timestamp, nbits, merkleRoot, nonce) {
 
         // I know much of this could be precomputed for efficiency, but I am going for clarity here
         // and we only need to run faster than user can click.
@@ -822,7 +986,7 @@
         // 30c31b18 ........................... Target: 0x1bc330 * 256**(0x18-3)
         // fe9f0864 ........................... Nonce
 
-        // rawHeader = bitcoinjs.buffer.Buffer.from("02000000b6ff0b1b1680a2862a30ca44d346d9e8910d334beb48ca0c00000000000000009d10aa52ee949386ca9385695f04ede270dda20810decd12bc9b048aaab3147124d95a5430c31b18fe9f0864","hex");
+        // rawHeader = Buffer.from("02000000b6ff0b1b1680a2862a30ca44d346d9e8910d334beb48ca0c00000000000000009d10aa52ee949386ca9385695f04ede270dda20810decd12bc9b048aaab3147124d95a5430c31b18fe9f0864","hex");
         // bitcoinjs.crypto.hash256( rawHeader );   // Gives a hash ended in zeros, so we need to match above format.
 
         o=b.writeUInt32LE( version , o );           // I know it is not little endian HERE, but hey this is what you have to do to match the example!
@@ -858,14 +1022,14 @@
     }
 
     // Hand code prev hash for now...
-    //block.prevHash = bitcoinjs.buffer.Buffer.from("367d631b6fd28a8cbf79513c20111463e777793a695c696ea8b2e9ef7aff65c8","hex").asReversed();
+    //block.prevHash = Buffer.from("367d631b6fd28a8cbf79513c20111463e777793a695c696ea8b2e9ef7aff65c8","hex").asReversed();
 
 
     /*
     // For testing force this block to be the one I see now so I can compare
-    block.prevHash = bitcoinjs.buffer.Buffer.from("367d631b6fd28a8cbf79513c20111463e777793a695c696ea8b2e9ef7aff65c8","hex").asReversed();
+    block.prevHash = Buffer.from("367d631b6fd28a8cbf79513c20111463e777793a695c696ea8b2e9ef7aff65c8","hex").asReversed();
     block.nonce = 1;
-    block.merkleRoot = bitcoinjs.buffer.Buffer.from("c40a1e396b379545d12dcc6b26256d9173a9c6f27da6b3f3af04987749613b7d","hex").asReversed();
+    block.merkleRoot = Buffer.from("c40a1e396b379545d12dcc6b26256d9173a9c6f27da6b3f3af04987749613b7d","hex").asReversed();
     block.timestamp = 1620111482;
     */
     // console.log("blockhash:");
@@ -920,6 +1084,8 @@
 
     }
 
+    // TODO: Serve static files also https://stackoverflow.com/a/20920463/3152071
+
     // Open connection to server. Sadly this is hard coded becuase I could not figure how a good way to get express and ws running on the server at the same time.
     ws = new WebSocket( bitcoinWebsocketServer );
     ws.binaryType = "arraybuffer";
@@ -928,10 +1094,10 @@
         console.log('Websocket: Connection opened!');
     }
     ws.onmessage = ({ data }) => {
-        const b = bitcoinjs.buffer.Buffer.from( data );
+        const b = Buffer.from( data );
         console.log('Websocket: received '+ b.length +'bytes');
         processWebsocketData(b);
-        ws.send( bitcoinjs.buffer.Buffer.from("49b024a553abf2a23d41ea04e2d64d4e5a33039c86e739299ec13df10e9e7859","hex").reverse() );
+        ws.send( Buffer.from("49b024a553abf2a23d41ea04e2d64d4e5a33039c86e739299ec13df10e9e7859","hex").reverse() );
     }
     ws.onclose = function() {
         console.log('Websocket: Connection closed!');

@@ -76,6 +76,7 @@ http.createServer(function (req, res) {
 // Whenever bitcoin-core gets a new block, then calls the `blocknotify` batch file, which then makes
 // a `curl` call to us with the new blockhash and difficulty.
 
+// TODO: TO submit a block via CLI https://medium.com/stackfame/how-to-run-shell-script-file-or-command-using-nodejs-b9f2455cb6b7
 
 function blockNotify( blockhash , diff ) {
 
