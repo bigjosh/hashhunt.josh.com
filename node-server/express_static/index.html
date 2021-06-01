@@ -170,6 +170,8 @@
     window.KENO_TABLE_ROWS = 10;        // 80 bits of nonce should be enough
     window.KENO_TABLE_COLS = 8;
     window.kenocells = [];              // Quick indexed access to the cells.
+
+    window.ws = null;                   // Websocket connection to our server.
 </script>
 
 <!-- PROGRAMMATICALLY BUILD THE WHEEL AND KENO TABLES --->
@@ -237,6 +239,8 @@
 
     var statusElement = document.getElementById('status');     // Save in global so we don't have to look up every time
 
+    var statusTimer;
+
     function updateStatus() {
 
         if (window.active) {
@@ -245,14 +249,24 @@
             const m = Math.floor( (elapsedTimeSecs - (h*3600)) / 60 );
             const s = Math.floor( (elapsedTimeSecs - (m*60)) );
             statusElement.innerText = "Elapsed time in this round:" + h.toString(10).padStart(2,'0')+":"+m.toString(10).padStart(2,'0')+":"+s.toString(10).padStart(2,'0');
-        } else {
-            statusElement.innerText = "NOT ACTIVE";        //https://stackoverflow.com/a/1322771/3152071
         }
 
     }
 
-    // Update elapsed time counter once per second
-    setInterval( updateStatus, 1000);
+    // We have all the info from the server to generate the puzzle, so let player start clicking
+    function  activatePlay() {
+        kenotable.classList.remove("disabled");
+        window.active=true;
+        updateStatus();
+        statusTimer = setInterval( updateStatus, 1000);          // Update elapsed time counter once per second
+    }
+
+    function deactivatePlay(msg) {
+        kenotable.classList.add("disabled");
+        window.active=false;
+        statusElement.innerText = msg;
+        clearInterval( statusTimer );       // Cancel update timer
+    }
 
 </script>
 
@@ -493,12 +507,11 @@
         // These bits will show up (double hashed with the rest of the coinbase TX) in the merkleroot which then gets included in the blockhash.
         // It would be better if we could put them at the end of the block header so they only got transformed by s single
         // hashing, but these days just 32 bits of nonce are very unlikely to contain a solution. Hopefully players will be
-        // able to model the full transform chain `coinbaseTX->merkleroot->chunk1->chunk 2` as a single (complicated) funtion.
+        // able to model the full transform chain `coinbaseTx->merkleroot->chunk1->chunk 2` as a single (complicated) funtion.
 
-        const coinbaseTX =  makeCoinbaseTX( kenoBitsBuffer , window.blockheight , window.keyPair.publicKey );
-        const merkleRoot =  bitcoinjs.crypto.sha256( bitcoinjs.crypto.sha256( coinbaseTX ) );       // Transactions are double hashed in merkle tree.
-
-        let block = makeBlockHeader(window.version, window.prevHash, window.nowSecs, window.nbits, merkleRoot, nonce);
+        const coinbaseTx =  makeCoinbaseTX( kenoBitsBuffer , window.blockheight , window.keyPair.publicKey );
+        const merkleRoot =  bitcoinjs.crypto.sha256( bitcoinjs.crypto.sha256( coinbaseTx ) );       // Transactions are double hashed in merkle tree.
+        let blockHeader = makeBlockHeader(window.version, window.prevHash, window.nowSecs, window.nbits, merkleRoot, nonce);
 
         // Here is test case, mostly to make sure we got all the byte ordering right.
         // Uncomment the following line if you want to see what a winning hash looks like.
@@ -506,7 +519,7 @@
         // (Don't get exited, it was already on the blockchain at https://btc.com/00000000000000000008bc0f0af14c9036f8c68a840404ce365554c8277e9e67 )
 
         // Remember the bitcoinjs hash uses LE byte order, so this must be reversed for human reading. Zeros should be at the *end* (high bytes) of this buffer.
-        let blockHash = bitcoinjs.crypto.hash256(block);
+        let blockHeaderHash = bitcoinjs.crypto.hash256(blockHeader);
 
         // As difficulty goes up, we need more wheels to come up hashes. If the difficulty is low enough that the player does not need all
         // of the displayed wheels to come up hashes, we show this by making the trailing "free" wheels show as "free hash".
@@ -522,9 +535,11 @@
         // We will show highest nibbles first on the wheels (first wheel is highest nibble of the hash- I think intuitively correct)
         // This way conceptually we are only showing the higher significant nibbles of the hash that actually matter.
         // We could show all 64 wheels (nibbles, which is the full 32 bytes/256 bits in the hash) with all the lower ones as "free"
-        // to be complete, but that would be a waste of screen space since they never change inside a round.
+        // to be complete, but that would be a waste of screen space since they never change inside a round. Is it possible that
+        // players could better see global patterns if we exposed the actually nibbles on non-win-determining wheels? Perhaps,
+        // but we will go with simple for now. Maybe an option for future versions!
 
-        const blockhashHexString = blockHash.toHexString();       // Use the hex string becuase it is easier and it is in correct byte order (highest first)
+        const blockHeaderHashHexString = blockHeaderHash.toHexString();       // Use the hex string becuase it is easier and it is in correct byte order (highest first)
 
         for( let w =0; w < WHEEL_TABLE_CELLS; w++ ) {
 
@@ -532,7 +547,7 @@
                 // This wheel is not FREE, so must come up a hash (zero) to insure winning play
 
                 // Display wheel landing value on webpage. Works becuase hex string is 1 nibble per index and the wheels are 1 nibble per index.
-                setWheel(w, parseInt( blockhashHexString[w] , 16 ) );
+                setWheel(w, parseInt( blockHeaderHashHexString[w] , 16 ) );
             } else {
                 // This is a free hash. (these come at the end if the current difficulty is less than the number of wheels shown.)
                 setWheelFree(w);
@@ -541,9 +556,9 @@
         }
 
         console.log("target     ="+target.toHexString());
-        console.log("blockhash  ="+blockHash.toHexString());
+        console.log("blockhash  ="+blockHeaderHash.toHexString());
 
-        // // This miniminer gives you the edge. You can pick if/how much to cheat. But remeber that, like all cheats,
+        // // This miniminer gives you the edge. You can pick if/how much to cheat. But remember that, like all cheats,
         // // using it is futile and destroys any true chance of winning. If someone wins here then it is divine intervention,
         // // which forces the question - why didn't god intervene on the main spin?
         // while ( nonce < 256 ) {
@@ -560,33 +575,18 @@
         //     }
         // }
 
-        if (blockHash.toHexString() < target.toHexString()) {
+        if (blockHeaderHash.toHexString() < target.toHexString()) {
             // We have a winner. Time is of the essecence, we must get the soolved block up to the server and onto the
             // network withouth delay!
 
             console.log("Looks like you may have won this round, I am sumbitting your solution...");
 
-            // Serialize the full block with the coinbase transaction in the format that bitcoind "submitblock" takes it
-            // https://developer.bitcoin.org/reference/block_chain.html#serialized-blocks
-            serializedFullBlock =  serializeBlockWithTX( block , coinbaseTX);
+            onWin( blockHeader , coinbaseTx );
 
-            // Belt - Send to our websocket server, which will get it to a full node lickity split...
-            submitBlockToServer( serializedFullBlock );
-
-            // Suspenders - Send to our dedicated independant node that that does nothing but listen for these, just in case...
-            // TODO:
-
-            // Now create and show a winner info page. Do it locally to avoid any network problems or delays.
-            // https://www.w3schools.com/jsref/met_win_open.asp
-            var myWindow = window.open("", "Hashhunt winning info page" );
-            myWindow.document.write("<p>This is 'MsgWindow'. I am 200px wide and 100px tall!</p>");
 
         } else {
             console.log("Sorry, try again.");
         }
-
-        var saveblock = block;
-        var savecb = coinbaseTX;
 
     }
 
@@ -601,6 +601,85 @@
         }
 
         updateWheels();
+
+    }
+
+    // Add a line to the status area at the bottom of the win page
+    // https://stackoverflow.com/a/20673977/3152071
+
+    function addSubmisionStatus(s) {
+        let statusupdatelist = document.getElementById('statusupdatelist');
+
+        const li = document.createElement("li");
+        const textNode = document.createTextNode( new Date().toLocaleTimeString() +": " + s  );
+
+        li.appendChild(textNode);
+        statusupdatelist.appendChild(li);
+    }
+
+    function onWin( blockHeader , coinbaseTx ) {
+
+        // Now create and show a winner info page. Do it locally to avoid any network problems or delays.
+        // https://www.w3schools.com/jsref/met_win_open.asp
+        document.writeln("<h1>Hash Hunt Potential Winner Page</h1>");
+        document.writeln("<p>Congradulations on solving the puzzle! What happens next?</p>");
+
+        document.writeln("<p>Your solution is being submitted to the network right now. If your solution was the first");
+        document.writeln("   one in this round then you will win the prize. </P>");
+
+        document.writeln("<h2>Your Hash Hunt prize claim code is:</h2>");
+        document.writeln("<pre>"+window.keyPair.toWIF()+"</pre>");
+
+        document.writeln("<p>It is very important that you save your claim code someplace very");
+        document.writeln("   safe.</p>");
+
+        document.writeln("   <ul>");
+        document.writeln("       <li>Take a photo of it with your phone</li>");
+        document.writeln("       <li>Make a screen shot</li>");
+        document.writeln("       <li>Copy/paste it into an email and send to yourself</li>");
+        document.writeln("       <li>Print it on your printer</li>");
+        document.writeln("       <li>Write it down (carefully) on a peice of paper</li>");
+        document.writeln("   </ul>");
+
+        document.writeln("   <p>Do it <b>NOW</b>. If you loose this code then you will not be able to claim");
+        document.writeln("   your prize. Do not share it with anyone who you do not 100% trust since anyone");
+        document.writeln("   with this code can claim your prize. </p>");
+
+        document.writeln("<h2>Live Submision Status Updates Here</h2>");
+
+        document.writeln("<ul id='statusupdatelist' style='list-style-type:none;'></ul>");
+
+        addSubmisionStatus("Submitting your solution to the network");
+
+        // Serialize the full block with the coinbase transaction in the format that bitcoind "submitblock" takes it
+        // https://developer.bitcoin.org/reference/block_chain.html#serialized-blocks
+        serializedFullBlock =  serializeBlockWithTX( blockHeader , coinbaseTx);
+
+        // Belt - Send to our websocket server, which will get it to a full node lickity split...
+        submitBlockToServer( serializedFullBlock );
+
+        addSubmisionStatus("Solution successfully submitted");
+
+        // Suspenders - Send to our dedicated independant node that that does nothing but listen for these, just in case...
+        // TODO:
+
+
+        // document.writeln("<h2>Check the status of your sumbision</h2>");
+        // document.writeln("<p>Click here to check if your submision has been accepted by the network...</p>");
+        //
+        // const blockCheckURL = "https://btc.com/"+blockHeader.toHexString();
+        // document.writeln("<a hre='"+blockCheckURL+"'>"+ blockCheckURL +"</a>");
+        // document.writeln("<p>Look for the <pre>Confirmations</pre> number. If this is 1 then your sumbmision was recieved.");
+        // document.writeln("Keep watching that number, the larger it gets the more likely you are the winner of the round.");
+        // document.writeln("Once it gets to 6 or more then you can be almost 100% sure you are the final winner.");
+        //
+        //
+        // document.writeln("<p>Your solution has been submitted to the network. If your solution was the first");
+        // document.writeln("   one in this round then you will win the prize. It can take up to an hour to resolve");
+        // document.writeln("   the winner in cases where multipule soultions were submitted at almost the same time.</p>");
+
+
+
 
     }
 
@@ -891,8 +970,8 @@
 
     // Make a coinbase transaction.
     // extranonce is a buffer
-    // blockheight is the heigh of the block this will be in (BIP-34)
-    // public key is a buffer to send the coinbase reward to as P2PKH transaction.
+    // blockheight is the heigh of the block this will be in (required by BIP-34)
+    // public key is a buffer indicating where to send the coinbase reward to as P2PKH transaction.
     // Check here: https://live.blockcypher.com/btc/decodetx/
 
     function makeCoinbaseTX( extranoce , blockheight , publicKey ) {
@@ -914,19 +993,20 @@
 
         o = b.writeUInt32LE(0x00000000, o);        // Locktime
 
-        var coinbaseTransaction = b.slice(0, o);    // Trim buffer to actual size
+        const coinbaseTransaction = b.slice(0, o);    // Trim buffer to actual size
+
+        console.log( "coina:" + coinbaseTransaction.toHexString());
 
         return coinbaseTransaction;
     }
 
-
-    // Make a new block with a single coinbase transaction
-    // extranonce is a buffer
-    // blockheight is the heigh of the block this will be in (BIP-34)
+    // Make a new block header
+    // Prevhash is a 32 byte LE buffer
+    // merkleRoot is a 32 byte LE buffer
     // Timestamp is seconds seince midnight 1/1/1970 UTC
-    // nbits is a number
-    // coinbaseTX is the coinbase transaction in a buffer
-    // nonce is 32 bit number
+    // version is a 32 bit number
+    // nbits is a 32 bit number
+    // nonce is a 32 bit number
 
     // Returns a buffer
 
@@ -969,14 +1049,14 @@
 
     // Serialize into a buffer that can be hexified and passed to bitcoind via `submitblock`
     // Both inputs are buffers
-    function serializeBlockWithTX( block , coinbaseTX ) {
+    function serializeBlockWithTX( block , coinbaseTx ) {
 
         let serializedblockBuffer = Buffer.makeOversizedBuffer();
         o=0;
 
         o=serializedblockBuffer.writeBuffer( block , o );
         o=serializedblockBuffer.writeVarint( 0x01 , o );        // Transaction count
-        o=serializedblockBuffer.writeBuffer( coinbaseTX , o );
+        o=serializedblockBuffer.writeBuffer( coinbaseTx , o );
 
         let serializedBlock = serializedblockBuffer.slice( 0 , o);
 
@@ -1051,6 +1131,7 @@
 
     function submitBlockToServer( serializedBlock ) {
         // TODO
+        ws.write( serializedBlock );
     }
 
     // TODO: Serve static files also https://stackoverflow.com/a/20920463/3152071
@@ -1066,11 +1147,21 @@
         const b = Buffer.from( data );
         console.log('Websocket: received '+ b.length +'bytes');
         processWebsocketData(b);
-        ws.send( Buffer.from("49b024a553abf2a23d41ea04e2d64d4e5a33039c86e739299ec13df10e9e7859","hex").reverse() );
+        // TODO: Message that new round just started
+        activatePlay();
     }
+
+    ws.onerror = function(event) {
+        deactivatePlay("Websocket error. Refresh page to restart.");
+        console.error("WebSocket error observed:", event);
+        // We depending on the fact that an onClose() will soon follow to alert the player
+        // https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API/Writing_WebSocket_client_applications#connection_errors
+    };
+
     ws.onclose = function() {
-        console.log('Websocket: Connection closed!');
+        console.log('Websocket: Connection closed!' , event);
         ws = null;
+        deactivatePlay("Connection lost. Refresh page to restart.");
     }
 
 </script>
