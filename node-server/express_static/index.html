@@ -491,7 +491,7 @@
         window.prevHash = Buffer.fromHexString("0000a23341f706b1c255456d432e6bd002e6a829fe209e47e2751317cb7e0edc");
         window.nowSecs = 1620115082;
         window.nbits = 0x170b3ce9;
-        window.nbits = 0x200fffff;      // For testing, 1:16 chance of winning.
+        window.nbits = 0x1e01608b;      // For testing, 1:16 chance of winning.
         window.blockheight = 5;
 
         // For REGNET testing
@@ -1101,21 +1101,23 @@
         // All messages should at least have these fields, sent everytime there is a new block on the network.
 
         if (b.length>=4+4+32) {
-            window.nowSecs         = b.readUInt32LE(0);     // Timestamp for current block in secs. We need to get from server since we can't know if browser clock is right and network will reject if off by >2 hours.
-            window.blockheight = b.readUInt32LE(4);         // Height of next block. Needed only for coinbase because of BIP-34.
-            window.prevHash        = b.slice( 8 , 32  );    // Remember this is in bitcoin LE encoding.
-            console.log("Entering round #"+blockheight+1);
+            window.nowSecs     = b.readUInt32LE(0);     // Timestamp for current block in secs. We need to get from server since we can't know if browser clock is right and network will reject if off by >2 hours.
+            window.blockheight = b.readUInt32LE(4);     // Height of next block. Needed only for coinbase because of BIP-34.
+            window.prevHash    = b.slice( 8 , 32  );    // Remember this is in bitcoin LE encoding.
+            console.log("Entering round #"+(blockheight+1)+" lastBlockTime="+Date(nowSecs)+" hash="+prevHash.toHexString() );
         }
 
         // We will also get these fields whenever difficulty changes and on the initial message after connecting.
 
-        if (b.length>=4+4+32+4) {
-            window.nbits = b.readUInt32LE( 32 );
-            console.log("Must find "+ target2hashcount( nbits2target( window.nbits ))+" hashes to win.");
+        if (b.length>=4+4+32) {
+            window.nbits = b.readUInt32LE( 4+4+32 );
+            console.log("New nbits="+nbits.toString(16)+" so must find "+ freeNibblesInTarget( nbits2target( window.nbits ))+" hashes to win.");
         }
 
-        if (b.length>=4+4+32+4+4) {
-            const delaySecs = b.readUInt32LE(36);       // When did the current round start (in ms). This is the only monotonic time I could find in all of javascript.
+        // We get this only on initial connect. It lets us show the player how far into the current round we are...
+
+        if (b.length>=4+4+32+4) {
+            const delaySecs = b.readUInt16LE(4+4+32+4);       // When did the current round start (in ms). This is the only monotonic time I could find in all of javascript.
             window.currentRoundStartTime = performance.now() - (delaySecs * 1000);   // Convert secs to ms and offset from now
             console.log("Joining a round already in progress with "+delaySecs+" seconds currently on the clock.");
             // TODO: Add popup here.
@@ -1139,20 +1141,22 @@
     // Open connection to server. Sadly this is hard coded becuase I could not figure how a good way to get express and ws running on the server at the same time.
     ws = new WebSocket( bitcoinWebsocketServer );
     ws.binaryType = "arraybuffer";
+    deactivatePlay("Connecting to server")
 
     ws.onopen = () => {
         console.log('Websocket: Connection opened!');
+        deactivatePlay("Coneected to server, waiting for data")
     }
     ws.onmessage = ({ data }) => {
         const b = Buffer.from( data );
-        console.log('Websocket: received '+ b.length +'bytes');
+        console.log('Websocket: received '+ b.length +' bytes');
         processWebsocketData(b);
         // TODO: Message that new round just started
         activatePlay();
     }
 
     ws.onerror = function(event) {
-        deactivatePlay("Websocket error. Refresh page to restart.");
+        deactivatePlay("Network error - refresh page to restart");
         console.error("WebSocket error observed:", event);
         // We depending on the fact that an onClose() will soon follow to alert the player
         // https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API/Writing_WebSocket_client_applications#connection_errors
@@ -1161,7 +1165,7 @@
     ws.onclose = function() {
         console.log('Websocket: Connection closed!' , event);
         ws = null;
-        deactivatePlay("Connection lost. Refresh page to restart.");
+        deactivatePlay("Connection lost - refresh page to restart.");
     }
 
 </script>
