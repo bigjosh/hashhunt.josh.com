@@ -8,9 +8,9 @@ let lastBlockTimeSecs =0;                   // Time current round started. Updat
 setDefaultLastBlockBuffer(lastBlockBuffer); // Put some dummy data in the buffer until we get an update.
 
 
-console.log("Starting websocket server on port"+websocketPort+"...");
+console.log("Starting websocket server on port "+websocketPort+"...");
 const wss = startWebsocketServer( websocketPort );
-console.log("Starting http server on port"+httpPort+"...");
+console.log("Starting http server on port "+httpPort+"...");
 const httpServer = startHttpServer(httpPort);
 
 // Biolerplate from https://www.npmjs.com/package/ws#simple-server
@@ -21,7 +21,10 @@ function startWebsocketServer( websocketPort ) {
     const wss = new WebSocket.Server({ port:websocketPort });
 
     // New websocket connection - send startup info: time of last block, prev hash, target
-    wss.on('connection', function connection(ws) {
+    wss.on('connection', function connection(ws,req) {
+
+        // https://stackoverflow.com/questions/14822708/how-to-get-client-ip-address-with-websocket-websockets-ws-library-in-node-js
+        console.log( "New ws connection from: " + ws._socket.remoteAddress)
 
         starupNewWsConnection( ws , lastBlockBuffer );
 
@@ -61,8 +64,12 @@ function updateLastBlockBuffer( b , nowSecs,  height  , prevHash ) {
 
     b.writeUInt32LE(nowSecs, 0);
     b.writeUInt32LE(height, 4);
-    prevHash.copy(b.reverse(), 4 + 4);                 // So ugly. Where is my b.writeBuffer() ? Reverse to put in bitcoin LE format so client can use directly.
-    return b.slice( 4 + 4 + 32 );                      // Return a pre-sized buffer
+    console.log("b:"+b.toString("hex"));
+    console.log("prevHash:"+prevHash.toString("hex"));
+    prevHash.copy(b, 4 + 4);                    // Note we send in BE and let the client reverse it since it takes work and they already have the function to do so.
+    console.log("b:"+b.toString("hex"));
+
+    return b.slice( 0 , 4+4+32 );           // Return a pre-sized buffer
 }
 
 // Update a new block with difficulty adjustment (every 2016 blocks)
@@ -70,7 +77,7 @@ function updateLastBlockBuffer( b , nowSecs,  height  , prevHash ) {
 function updateLastBlockBufferAdjust( b , nowSecs, height , prevHash ,  nbits  ) {
     updateLastBlockBuffer( b , nowSecs , height , prevHash );
     b.writeUInt32LE( nbits , 4+4+32 );
-    return b.slice( 4 + 4 + 32 + 4);                    // Return a pre-sized buffer
+    return b.slice( 0 , 4+4+32 + 4);                    // Return a pre-sized buffer
 }
 
 // Uses current time and the timestamp of last block to update the "delay time" field  which is only used
@@ -83,7 +90,7 @@ function updateLastBlockBufferDelay(b) {
     const delaySecs = Math.min( nowSecs - lastBlockTimeSecs , 0xffff);    // Make sure fits in 16 bits
 
     b.writeUInt16LE(  delaySecs , 4+4+32+4 );
-    return b.slice( 4 + 4 + 32 + 4 + 2);                    // Return a pre-sized buffer
+    return b.slice( 0 , 4+4+32+4 + 2);                    // Return a pre-sized buffer
 }
 
 
@@ -141,6 +148,8 @@ function starupNewWsConnection( ws , lastBlockBuffer ) {
     // the player aprox how long into the current round they are.
 
     const msg = updateLastBlockBufferDelay( lastBlockBuffer );
+
+    console.log("sending [" + msg.length +"]:"+msg.toString("hex"));
     ws.send( msg );
 
 }

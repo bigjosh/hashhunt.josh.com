@@ -172,6 +172,9 @@
     window.kenocells = [];              // Quick indexed access to the cells.
 
     window.ws = null;                   // Websocket connection to our server.
+
+    const TOTAL_NIBBLES_IN_HASH = 64;         // A hash is 256 bits = 32 bytes = 64 nibbles
+
 </script>
 
 <!-- PROGRAMMATICALLY BUILD THE WHEEL AND KENO TABLES --->
@@ -244,11 +247,11 @@
     function updateStatus() {
 
         if (window.active) {
-            const elapsedTimeSecs = (performance.now()-window.roundStartTime)/1000;
+            const elapsedTimeSecs = (performance.now()-window.currentRoundStartTime)/1000;
             const h = Math.floor( elapsedTimeSecs / 3600 );
             const m = Math.floor( (elapsedTimeSecs - (h*3600)) / 60 );
             const s = Math.floor( (elapsedTimeSecs - (m*60)) );
-            statusElement.innerText = "Elapsed time in this round:" + h.toString(10).padStart(2,'0')+":"+m.toString(10).padStart(2,'0')+":"+s.toString(10).padStart(2,'0');
+            statusElement.innerText = "Current round elapsed time: " + h.toString(10).padStart(2,'0')+":"+m.toString(10).padStart(2,'0')+":"+s.toString(10).padStart(2,'0');
         }
 
     }
@@ -298,6 +301,12 @@
     Buffer.prototype.writeBuffer = function ( b , o  ) {
         return o+b.copy( this , o  );
     }
+
+    // How can the API not come with this function?!
+    Buffer.prototype.readBuffer = function ( l , o  ) {
+        return this.slice( o , o+l );
+    }
+
 
     // How can the API not come with this function?!
     Buffer.prototype.writeUInt24LE = function ( x , o  ) {
@@ -487,18 +496,18 @@
 
         // Next generate a block with the keno bits as the extranonce
 
-         // CANNED DATA TO TEST WHEN NO WEBSOCKET DATA AVAILABLE
-        window.prevHash = Buffer.fromHexString("0000a23341f706b1c255456d432e6bd002e6a829fe209e47e2751317cb7e0edc");
-        window.nowSecs = 1620115082;
-        window.nbits = 0x170b3ce9;
-        window.nbits = 0x1e01608b;      // For testing, 1:16 chance of winning.
-        window.blockheight = 5;
+        //  // CANNED DATA TO TEST WHEN NO WEBSOCKET DATA AVAILABLE
+        // window.prevHash = Buffer.fromHexString("0000a23341f706b1c255456d432e6bd002e6a829fe209e47e2751317cb7e0edc");
+        // window.nowSecs = 1620115082;
+        // window.nbits = 0x170b3ce9;
+        // window.nbits = 0x1e01608b;      // For testing, 1:16 chance of winning.
+        // window.blockheight = 5;
 
-        // For REGNET testing
-        window.prevHash = Buffer.fromHexString("0000a23341f706b1c255456d432e6bd002e6a829fe209e47e2751317cb7e0edc");
-        window.nowSecs = 1620115082;
-        window.blockheight = 5;
-        window.nbits = 0x207fffff;
+        // // For REGNET testing
+        // window.prevHash = Buffer.fromHexString("0000a23341f706b1c255456d432e6bd002e6a829fe209e47e2751317cb7e0edc");
+        // window.nowSecs = 1620115082;
+        // window.blockheight = 5;
+        // window.nbits = 0x207fffff;
 
         // TODO: Have a webworker try all nonces in the backround between clicks... or would that be karmic cheating?
         let nonce =0;
@@ -528,7 +537,7 @@
 
         const freeNibleCount = freeNibblesInTarget(target); // How many of the 64 nibbles in the target are "free" (unconstrained)
 
-        const zeroNibbleCount = 64 - freeNibleCount;        // The number of leading nibbles that must be 0 to insure that we are below target. This is the number of wheels in play.
+        const zeroNibbleCount = TOTAL_NIBBLES_IN_HASH - freeNibleCount;        // The number of leading nibbles that must be 0 to insure that we are below target. This is the number of wheels in play.
 
         // Now update the wheels
 
@@ -558,7 +567,7 @@
         console.log("target     ="+target.toHexString());
         console.log("blockhash  ="+blockHeaderHash.toHexString());
 
-        // // This miniminer gives you the edge. You can pick if/how much to cheat. But remember that, like all cheats,
+        // // This mini-miner gives you the edge. You can pick if/how much to cheat. But remember that, like all cheats,
         // // using it is futile and destroys any true chance of winning. If someone wins here then it is divine intervention,
         // // which forces the question - why didn't god intervene on the main spin?
         // while ( nonce < 256 ) {
@@ -575,8 +584,12 @@
         //     }
         // }
 
+        // Note that here we compare the actual user-produced hash to the actual target.
+        // This means we give the win to the player in cases where miss by one hash but
+        // by sheer luck the hash happens to be less than the target.
+
         if (blockHeaderHash.toHexString() < target.toHexString()) {
-            // We have a winner. Time is of the essecence, we must get the soolved block up to the server and onto the
+            // We have a winner. Time is of the essecence, we must get the solved block up to the server and onto the
             // network withouth delay!
 
             console.log("Looks like you may have won this round, I am sumbitting your solution...");
@@ -960,11 +973,11 @@
 
         let freeNibbleString = "f";
 
-        while ( freeNibbleString.padStart( 64 , '0') < targetHexString  ) {
-            freeNibbleString+='f';
+        while ( freeNibbleString.padStart( TOTAL_NIBBLES_IN_HASH , '0') < targetHexString  ) {
+            freeNibbleString+='f';      // Add another nibble and see if we are still below the target
         }
 
-        return freeNibbleString.length-1;        // Since each char in the hex string is a nibble, we can just take the len
+        return freeNibbleString.length-1;   // less 1 becuase we will exit the while() on the first string that is *not* less than target
 
     }
 
@@ -1103,15 +1116,18 @@
         if (b.length>=4+4+32) {
             window.nowSecs     = b.readUInt32LE(0);     // Timestamp for current block in secs. We need to get from server since we can't know if browser clock is right and network will reject if off by >2 hours.
             window.blockheight = b.readUInt32LE(4);     // Height of next block. Needed only for coinbase because of BIP-34.
-            window.prevHash    = b.slice( 8 , 32  );    // Remember this is in bitcoin LE encoding.
-            console.log("Entering round #"+(blockheight+1)+" lastBlockTime="+Date(nowSecs)+" hash="+prevHash.toHexString() );
+            window.prevHash    = b.readBuffer( 32 , 4+4  ).asReversed();    // Note sent in BE format and  it is up to us to convert to bitcoin LE format.
+            console.log("Entering round #"+(blockheight+1)+" lastBlockTime="+Date(nowSecs));
+            console.log("hash  ="+prevHash.toHexString() );
         }
 
         // We will also get these fields whenever difficulty changes and on the initial message after connecting.
 
         if (b.length>=4+4+32) {
             window.nbits = b.readUInt32LE( 4+4+32 );
-            console.log("New nbits="+nbits.toString(16)+" so must find "+ freeNibblesInTarget( nbits2target( window.nbits ))+" hashes to win.");
+            console.log("New nbits="+nbits.toString(16)+" so must find "+ (TOTAL_NIBBLES_IN_HASH - freeNibblesInTarget( nbits2target( window.nbits )))+" hashes to win.");
+            console.log("target="+nbits2target( window.nbits  ).toHexString());
+
         }
 
         // We get this only on initial connect. It lets us show the player how far into the current round we are...
@@ -1149,7 +1165,7 @@
     }
     ws.onmessage = ({ data }) => {
         const b = Buffer.from( data );
-        console.log('Websocket: received '+ b.length +' bytes');
+        console.log('Websocket: received ['+ b.length +']:'+b.toString("hex"));
         processWebsocketData(b);
         // TODO: Message that new round just started
         activatePlay();
