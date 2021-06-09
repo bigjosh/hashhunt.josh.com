@@ -104,7 +104,40 @@
         background-color: #ffffff;
     }
 
+    /* https://www.w3schools.com/css/css3_buttons.asp */
+    button {
+        border: none;
+        padding: 15px 32px;
+        text-align: center;
+        text-decoration: none;
+        font-size: 16px;
+    }
+
 </style>
+
+<!---
+
+     UI OVERVIEW:
+
+       STATUS DIV  -Shows (1) waiting for connection to the websocket server, (2) lost connection to websocket server, or
+                    (3) the elasped time in the current round while actively connected to the websocket server and game is live.
+
+       WHEELSTABLE -Shows the "wheels" that the player is trying to get to come up all hashes ("#"). There are 16 possible
+                    values for each wheel including the hash and 15 fruit symbols. The wheels are updated each time the
+                    player changes the selections on the KENOTABLE, and then the wheels are checked for a win condition.
+                    If a solution was found, the winning block is immedeately sent to the server and then the current page
+                    is replaced locally with the "win" page that has the player's claim code along with instructions on how
+                    to check the status of the submision and claim the prize.
+
+        KENOTABLE  -Shows a table of numbers. The player click on the numbers to select or deselect them in any combination.
+
+    ROUNDOVERTABLE -A table that is positioned over the WHEELSTABLE but is usually hidden. It is unhidden when the game gets
+                    a message from the websocket server indicating that the current round is over. Clicking the "Join new round"
+                    button hides the table again, clears the previous puzzle pattern, and joins the new round using the newly
+                    recieved puzzle parameters.
+
+--->
+
 <body>
 <div style="width: 100%; max-width: 600px; align-content: center;">
 
@@ -113,26 +146,35 @@
             <tr>
                 <td>
                     <table style="display: inline;">
-                        <tr><td><hr style="margin: 1px 0px 1px 0px; "></td></tr>
                         <tr><td><div style="box-sizing:border-box;"><span style="font-family: 'Girassol', serif ;font-size: large; padding: 5px; background: black; color:white; display:inline-block;">HASH HUNT</span></div></td></tr>
-                        <tr><td><hr style="margin: 1px 0px 1px 0px; "></td></tr>
                     </table>
                 </td>
                 <td style="text-align: right; padding-right: 10px;">
-                    <a href="info.html">more info</a><br><br>
-                    <span id="status">Loading</span>
+                    <div id="status">Loading</div>
+                    <a href="info.html">more info</a>
                 </td>
             </tr>
         </table>
     </div>
 
-    <div style="display: block; width: 100%;">
-        <table id="wheelsTable" style="width: 100%;"></table>
+    <div style="position: relative;">
+        <div style="display: block; width: 100%;">
+            <table id="wheelsTable" style="width: 100%;"></table>
+        </div>
+        <div style="width: 100%; height: 100%; position: absolute; top: 0; left: 0;">
+            <table id="roundOverTable" style="width: 100%; height: 100%; visibility: hidden;">
+                <tr style="width: 100%; height: 100%; background: midnightblue; color: white;">
+                    <td style="width: 100%; height: 100%; text-align: center; vertical-align: center;">
+                        <h2>THIS ROUND IS OVER</h2>
+                        <button onclick="startRound();">Click to join the next round</button>
+                    </td>
+                </tr>
+            </table>
+
+        </div>
+
     </div>
 
-<!--    <div style="display: block; width: 100%;">-->
-<!--        <td><hr></td>-->
-<!--    </div>-->
 
     <div style="display: block; width: 100%;">
         <table id="kenotable" style="width: 100%;"></table>
@@ -147,8 +189,6 @@
     window.testmode = false;            // Test or Main. Set if URL contains "TESTMODE".
     window.keyPair;                     // User's keypair
 
-    window.active = false;              // Are we currently playing a round? Set when first set of websocket data recieved.
-
     // Info on current round, based on data recieved over the websocket
     // TODO: Package this block stuff into an object to keep it neat
     window.version = 0x2268e004;        // (found emperically from recent blocks)
@@ -156,12 +196,12 @@
 
     window.nowSecs;                     // Time to used for current block. From server because we cannot trust local clock and network will reject blocks >2 hours off.
     window.nbits;                       // nbits for difficulty target from server.
-    window.prevHash;                    // 32 byte hex string with previous block hash. Stored in bincoin LE order.
-    window.blockheight;                 // UINT32 height of prev block. We need to put this in the coinbase as per BIP-34.
+    window.prevHash;                    // 32 byte buffer with previous block hash. Stored in bincoin LE order.
+    window.roundNumber;                 // UINT32
 
-    window.currentRoundStartTime;       // When did the current round start by local clock in ms. Used for elapsed time display.
+    window.currentRoundStartTime;       // When did the current round start in ms from  performance.now clock. Used for elapsed time display.
 
-    window.bitcoinWebsocketServer;      // We connect here with a websocket to get live updates
+    window.bitcoinWebsocketServer;      // String URL of websocket server to connect to.
 
     window.WHEEL_TABLE_COLS = 5;        // Must be an integer factor of 20 for now.
     window.WHEEL_TABLE_CELLS = 20;      // Total number of cells. Might need to incease if difficulty increases.
@@ -173,7 +213,7 @@
 
     window.ws = null;                   // Websocket connection to our server.
 
-    const TOTAL_NIBBLES_IN_HASH = 64;         // A hash is 256 bits = 32 bytes = 64 nibbles
+    const TOTAL_NIBBLES_IN_HASH = 64;   // A hash is 256 bits = 32 bytes = 64 nibbles
 
 </script>
 
@@ -213,7 +253,6 @@
             };
             kenocells[bit_index]=cell;
             bit_index++;
-            //console.log("bi="+bit_index);
         }
     }
 </script>
@@ -246,30 +285,42 @@
 
     function updateStatus() {
 
-        if (window.active) {
-            const elapsedTimeSecs = (performance.now()-window.currentRoundStartTime)/1000;
-            const h = Math.floor( elapsedTimeSecs / 3600 );
-            const m = Math.floor( (elapsedTimeSecs - (h*3600)) / 60 );
-            const s = Math.floor( (elapsedTimeSecs - (m*60)) );
-            statusElement.innerText = "Current round elapsed time: " + h.toString(10).padStart(2,'0')+":"+m.toString(10).padStart(2,'0')+":"+s.toString(10).padStart(2,'0');
-        }
+        const elapsedTimeSecs = (performance.now()-window.currentRoundStartTime)/1000;
+        const h = Math.floor( elapsedTimeSecs / 3600 );
+        const m = Math.floor( (elapsedTimeSecs - (h*3600)) / 60 );
+        const s = Math.floor( (elapsedTimeSecs - (h*3600) - (m*60)) );
+        statusElement.innerText = "Current round elapsed time: " + h.toString(10).padStart(2,'0')+":"+m.toString(10).padStart(2,'0')+":"+s.toString(10).padStart(2,'0');
 
     }
 
+    var roundOverTable = document.getElementById('roundOverTable');     // Save in global so we don't have to look up every time.
+
     // We have all the info from the server to generate the puzzle, so let player start clicking
-    function  activatePlay() {
+    // Clears any selected keno cells.
+    function startRound() {
+        resetKenoTable();
+        roundOverTable.style.visibility="hidden";      // Hide the "new round" popup alert
         kenotable.classList.remove("disabled");
-        window.active=true;
         updateStatus();
         statusTimer = setInterval( updateStatus, 1000);          // Update elapsed time counter once per second
     }
 
-    function deactivatePlay(msg) {
+    function deactivatePlay() {
         kenotable.classList.add("disabled");
-        window.active=false;
-        statusElement.innerText = msg;
         clearInterval( statusTimer );       // Cancel update timer
     }
+
+    function deactivatedAlert(msg) {
+        deactivatePlay();
+        statusElement.innerText = msg;
+    }
+
+    function roundOver() {
+        deactivatePlay();
+        resetWheels();      // Just to stop any pulsing hashes from being visbile around the edge of the alert
+        roundOverTable.style.visibility="visible";
+    }
+
 
 </script>
 
@@ -469,9 +520,18 @@
     function resetKenoTable() {
         for (let cell of kenocells) {
             cell.classList.remove("kenocell_selected");
+        }
+    }
+
+    // Clear all selections from kenotable and start fresh with question marks.
+    // Happens whenever a new round starts or we loose websocket connection.
+    function resetWheels() {
+        for (let cell of wheelstablecells) {
+            cell.classList.remove( "wheels_cell_hash");
             cell.innerHTML = "❓";
         }
     }
+
 
     // Updates the wheels in the DOM and then checks for winner.
     // In case of a winning pattern, sumbits it and then redirects to a winner instructions page.
@@ -501,13 +561,7 @@
         // window.nowSecs = 1620115082;
         // window.nbits = 0x170b3ce9;
         // window.nbits = 0x1e01608b;      // For testing, 1:16 chance of winning.
-        // window.blockheight = 5;
-
-        // // For REGNET testing
-        // window.prevHash = Buffer.fromHexString("0000a23341f706b1c255456d432e6bd002e6a829fe209e47e2751317cb7e0edc");
-        // window.nowSecs = 1620115082;
-        // window.blockheight = 5;
-        // window.nbits = 0x207fffff;
+        // window.roundNumber = 5;
 
         // TODO: Have a webworker try all nonces in the backround between clicks... or would that be karmic cheating?
         let nonce =0;
@@ -518,7 +572,7 @@
         // hashing, but these days just 32 bits of nonce are very unlikely to contain a solution. Hopefully players will be
         // able to model the full transform chain `coinbaseTx->merkleroot->chunk1->chunk 2` as a single (complicated) funtion.
 
-        const coinbaseTx =  makeCoinbaseTX( kenoBitsBuffer , window.blockheight , window.keyPair.publicKey );
+        const coinbaseTx =  makeCoinbaseTX( kenoBitsBuffer , window.roundNumber , window.keyPair.publicKey );
         const merkleRoot =  bitcoinjs.crypto.sha256( bitcoinjs.crypto.sha256( coinbaseTx ) );       // Transactions are double hashed in merkle tree.
         let blockHeader = makeBlockHeader(window.version, window.prevHash, window.nowSecs, window.nbits, merkleRoot, nonce);
 
@@ -662,7 +716,7 @@
 
         document.writeln("<ul id='statusupdatelist' style='list-style-type:none;'></ul>");
 
-        addSubmisionStatus("Submitting your solution to the network");
+        addSubmisionStatus("Submitting your solution to the network...");
 
         // Serialize the full block with the coinbase transaction in the format that bitcoind "submitblock" takes it
         // https://developer.bitcoin.org/reference/block_chain.html#serialized-blocks
@@ -671,28 +725,11 @@
         // Belt - Send to our websocket server, which will get it to a full node lickity split...
         submitBlockToServer( serializedFullBlock );
 
-        addSubmisionStatus("Solution successfully submitted");
+        addSubmisionStatus("Solution successfully submitted....");
 
-        // Suspenders - Send to our dedicated independant node that that does nothing but listen for these, just in case...
-        // TODO:
-
-
-        // document.writeln("<h2>Check the status of your sumbision</h2>");
-        // document.writeln("<p>Click here to check if your submision has been accepted by the network...</p>");
-        //
-        // const blockCheckURL = "https://btc.com/"+blockHeader.toHexString();
-        // document.writeln("<a hre='"+blockCheckURL+"'>"+ blockCheckURL +"</a>");
-        // document.writeln("<p>Look for the <pre>Confirmations</pre> number. If this is 1 then your sumbmision was recieved.");
-        // document.writeln("Keep watching that number, the larger it gets the more likely you are the winner of the round.");
-        // document.writeln("Once it gets to 6 or more then you can be almost 100% sure you are the final winner.");
-        //
-        //
-        // document.writeln("<p>Your solution has been submitted to the network. If your solution was the first");
-        // document.writeln("   one in this round then you will win the prize. It can take up to an hour to resolve");
-        // document.writeln("   the winner in cases where multipule soultions were submitted at almost the same time.</p>");
-
-
-
+        // Suspenders - Send to our dedicated independant node that that does nothing but listen for these, just in case
+        // something goes wrong with the websocket at least we will get the winning block onto the network...
+        // TODO: Set up a node that accepts our winning blocks via HTTP post.
 
     }
 
@@ -723,8 +760,7 @@
 
 </script>
 
-<!--- GENERATE A BLOCK. READS KENOBITS, KEYPAIR, KENOBITS, ROUNDSTARTTIME, TARGTEHEX, AND PREVHASH --->
-<!--- UPDATES WHEELS TABLE AND SUBMITS BLOCK IF WINNING SOLUTION FOUND -->
+<!--- GENERATE A BLOCK WITH A COINBASE THAT INCLUDES OUT EXTRANONCE BITS. --->
 
 <script>
 
@@ -813,7 +849,7 @@
         let pushBlockheightOps = pushValueScriptOps(blockheight);
         o=b.writeBuffer(pushBlockheightOps,o);
 
-        // Here we get to stick in a little promo in the coinbase
+        // Free advertizing on the biggest billboard on Earth!
         o=b.writeBuffer( Buffer.from("/Play Hashhunt.josh.com/") , o );
         o=b.writeBuffer( extraNonce , o );         // These nonce bits will hopefuly percolate into a nice merkle hash and then into a nice block hash
 
@@ -1008,8 +1044,6 @@
 
         const coinbaseTransaction = b.slice(0, o);    // Trim buffer to actual size
 
-        console.log( "coina:" + coinbaseTransaction.toHexString());
-
         return coinbaseTransaction;
     }
 
@@ -1026,7 +1060,6 @@
     function makeBlockHeader(version, prevHash, timestamp, nbits, merkleRoot, nonce) {
 
         // I know much of this could be precomputed for efficiency, but I am going for clarity here
-        // and we only need to run faster than user can click.
 
         const b = Buffer.makeOversizedBuffer();
         let o=0;
@@ -1079,10 +1112,6 @@
         return serializedBlock;
     }
 
-    // Hand code prev hash for now...
-    //block.prevHash = Buffer.from("367d631b6fd28a8cbf79513c20111463e777793a695c696ea8b2e9ef7aff65c8","hex").asReversed();
-
-
     /*
     // For testing force this block to be the one I see now so I can compare
     block.prevHash = Buffer.from("367d631b6fd28a8cbf79513c20111463e777793a695c696ea8b2e9ef7aff65c8","hex").asReversed();
@@ -1111,19 +1140,33 @@
 
     function processWebsocketData(b) {
 
+        if (b.length==1) {
+            // This is a response to a submitted block so we add a message to the bottom of the win page.
+            if (b[0]=='A') {
+                addSubmisionStatus("Solution ACCEPTED by server.");
+            } else {
+                addSubmisionStatus("Solution REJECTED by server.");
+            }
+            return;
+        }
+
         // All messages should at least have these fields, sent everytime there is a new block on the network.
 
         if (b.length>=4+4+32) {
             window.nowSecs     = b.readUInt32LE(0);     // Timestamp for current block in secs. We need to get from server since we can't know if browser clock is right and network will reject if off by >2 hours.
-            window.blockheight = b.readUInt32LE(4);     // Height of next block. Needed only for coinbase because of BIP-34.
+            const height       = b.readUInt32LE(4);     // Height of prev block. Needed only for coinbase because of BIP-34.
             window.prevHash    = b.readBuffer( 32 , 4+4  ).asReversed();    // Note sent in BE format and  it is up to us to convert to bitcoin LE format.
-            console.log("Entering round #"+(blockheight+1)+" lastBlockTime="+Date(nowSecs));
+
+            console.log(b.readUInt32LE(4));
+            window.roundNumber = height + 1;
+
+            console.log("Entering round #"+window.roundNumber+" lastBlockTime="+Date(nowSecs));
             console.log("hash  ="+prevHash.toHexString() );
         }
 
         // We will also get these fields whenever difficulty changes and on the initial message after connecting.
 
-        if (b.length>=4+4+32) {
+        if (b.length>=4+4+32 + 4) {
             window.nbits = b.readUInt32LE( 4+4+32 );
             console.log("New nbits="+nbits.toString(16)+" so must find "+ (TOTAL_NIBBLES_IN_HASH - freeNibblesInTarget( nbits2target( window.nbits )))+" hashes to win.");
             console.log("target="+nbits2target( window.nbits  ).toHexString());
@@ -1132,23 +1175,25 @@
 
         // We get this only on initial connect. It lets us show the player how far into the current round we are...
 
-        if (b.length>=4+4+32+4) {
+        if (b.length>=4+4+32+4 + 2) {
             const delaySecs = b.readUInt16LE(4+4+32+4);       // When did the current round start (in ms). This is the only monotonic time I could find in all of javascript.
             window.currentRoundStartTime = performance.now() - (delaySecs * 1000);   // Convert secs to ms and offset from now
             console.log("Joining a round already in progress with "+delaySecs+" seconds currently on the clock.");
-            // TODO: Add popup here.
-            //alert("Joining a round already in progress with "+delaySecs+" seconds currently on the clock.");
+            startRound();
         } else {
-            window.currentRoundStartTime = performance.now();
 
+            // If we get here, then we had already been playing a round and we just got a new one, so
+            // show an alert to the user so they know there is a new puzzle.
+            window.currentRoundStartTime = performance.now();
+            roundOver();
+            // startRound() will be called when the user presses the button
         }
 
-        // TODO: Refresh board
 
     }
 
     function submitBlockToServer( serializedBlock ) {
-        // TODO
+        // TODO: Other ways also?
         ws.write( serializedBlock );
     }
 
@@ -1157,22 +1202,21 @@
     // Open connection to server. Sadly this is hard coded becuase I could not figure how a good way to get express and ws running on the server at the same time.
     ws = new WebSocket( bitcoinWebsocketServer );
     ws.binaryType = "arraybuffer";
-    deactivatePlay("Connecting to server")
+    deactivatedAlert("Connecting to server")
 
     ws.onopen = () => {
         console.log('Websocket: Connection opened!');
-        deactivatePlay("Coneected to server, waiting for data")
+        deactivatedAlert("Conected to server, waiting for data")
     }
     ws.onmessage = ({ data }) => {
         const b = Buffer.from( data );
         console.log('Websocket: received ['+ b.length +']:'+b.toString("hex"));
         processWebsocketData(b);
-        // TODO: Message that new round just started
-        activatePlay();
+
     }
 
     ws.onerror = function(event) {
-        deactivatePlay("Network error - refresh page to restart");
+        deactivatedAlert("Network error - refresh page");
         console.error("WebSocket error observed:", event);
         // We depending on the fact that an onClose() will soon follow to alert the player
         // https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API/Writing_WebSocket_client_applications#connection_errors
@@ -1181,7 +1225,7 @@
     ws.onclose = function() {
         console.log('Websocket: Connection closed!' , event);
         ws = null;
-        deactivatePlay("Connection lost - refresh page to restart.");
+        deactivatedAlert("Connection lost - refresh page");
     }
 
 </script>

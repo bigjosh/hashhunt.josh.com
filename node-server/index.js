@@ -7,6 +7,8 @@ let lastBlockBuffer = Buffer.alloc(256);    // Keep a prefilled buffer around so
 let lastBlockTimeSecs =0;                   // Time current round started. Updated in update buffer functions.
 setDefaultLastBlockBuffer(lastBlockBuffer); // Put some dummy data in the buffer until we get an update.
 
+// We need to lift this to global scope so we can get to the OPEN static constant
+const WebSocket = require('ws');
 
 console.log("Starting websocket server on port "+websocketPort+"...");
 const wss = startWebsocketServer( websocketPort );
@@ -17,7 +19,6 @@ const httpServer = startHttpServer(httpPort);
 
 function startWebsocketServer( websocketPort ) {
 
-    const WebSocket = require('ws');
     const wss = new WebSocket.Server({ port:websocketPort });
 
     // New websocket connection - send startup info: time of last block, prev hash, target
@@ -31,12 +32,31 @@ function startWebsocketServer( websocketPort ) {
         ws.on('message', function incoming(message) {
             // For now the only thing we recieve from the client is a mined block, which we turn around and submit.
             console.log('received: %s', message);
-            submitblock(message);
+
+            if (isBlockValid(message)) {
+                submitblock(message);
+                ws.send('A');       // Send accept reciept back to the client.
+            } else {
+                ws.send('J');       // Send reject reciept back to the client. (Anything but A is reject for now)
+            }
         });
     });
 
     return wss;
 
+}
+
+// Checks that a block is valid so we don't waste effort submitting bad blocks to bitcoin-core since
+// it is expensive. Check...
+// length is right
+// nbits is right
+// height is right
+// coinbase has hashhunt data in it
+// hash is below target
+
+function isBlockValid(b) {
+    // TODO: write this
+    return true;        // (for now)
 }
 
 // **** We use this buffer to send updates to the clients over the websocket.
@@ -63,6 +83,7 @@ function updateLastBlockBuffer( b , nowSecs,  height  , prevHash ) {
     lastBlockTimeSecs = Date.now()/1000;        // Time current round started
 
     b.writeUInt32LE(nowSecs, 0);
+    console.log("height:"+height);
     b.writeUInt32LE(height, 4);
     console.log("b:"+b.toString("hex"));
     console.log("prevHash:"+prevHash.toString("hex"));
@@ -97,8 +118,12 @@ function updateLastBlockBufferDelay(b) {
 // Submit a block to the local bitcoind using the cli
 
 function submitblock( b ) {
+
+    // Run a batch file to submit the block to bitcoin core over RPC
     const commandline = blockSubmitCommandTemplate.replace( "${block}" , b.toString("hex") );
     console.log("Submitting block command:"+commandline);
+
+
 }
 
 // Set up an HTTP server so we can get async notifications and share some
@@ -121,13 +146,15 @@ function startHttpServer(port) {
 
         if (pathname.startsWith("/blocknotify")) {
             res.writeHead(200, {'Content-Type': 'text/html'});
-            res.end('Blocknotify good.');
+            res.end('Blocknotify good, thank you.');
 
-            const blockhash = new Buffer( queryObject.blockhash ).asReversed();
+            const blockhash = Buffer.from( queryObject.blockhash , "hex" );          // We keep and send in BE format becuase easier to reverse on the client.
             const nbits = queryObject.nbits;
             const height = queryObject.height;
 
-            console.log("blocknotify blockhash="+blockhash+" nbits=" + nbits.toString(16) + " height="+height);
+            console.log("blocknotify blockhash="+blockhash.toString("hex")+" nbits=" + nbits.toString(16) + " height="+height);
+
+            // No param sanity checks here. We should be the only ones able to submit, so want to crash if any problems.
             blockNotify(blockhash, nbits, height, lastBlockBuffer);       // Send update to clients
         }
 
@@ -159,34 +186,40 @@ function starupNewWsConnection( ws , lastBlockBuffer ) {
 
 // TODO: To submit a block via CLI https://medium.com/stackfame/how-to-run-shell-script-file-or-command-using-nodejs-b9f2455cb6b7
 
-function blockNotify( height , blockhash , nbits , lastBlockBuffer ) {
+function blockNotify(  blockhash , nbits , height , lastBlockBuffer ) {
 
     const nowSecs = Date.now()/1000;            // Convert milliseconds to seconds. Assumes local machine has good UTC time.
 
     // Note that we use height+1 since the height passed here is the height of the just-mined block,
     // but we want to send to the client the height of the next block they should mine.
 
-    if ( blockheight % 2016 == 1 ) {
+    let msg;
+
+    if ( height % 2016 == 1 ) {
         // Difficulty adjustment block. Note we check ==1 and not ==0 becuase we will not see the adjustment in the nbits
         // until the first block actually mined after the adjustment.
         // TODO:  Find a way to get the new difficulty sooner. https://bitcoin.stackexchange.com/q/106055/113175
 
-        const msg=updateLastBlockBufferAdjust( lastBlockBuffer , nowSecs, height+1 , blockheight ,  nbits  );
+        msg=updateLastBlockBufferAdjust( lastBlockBuffer , nowSecs, height , blockhash ,  nbits  );
 
     } else {
         // Normal new block, no difficulty adjust
 
-        const msg=updateLastBlockBuffer( lastBlockBuffer , nowSecs, height+1 , blockheight  );
+        msg=updateLastBlockBuffer( lastBlockBuffer , nowSecs, height , blockhash  );
     }
 
     let count=0;
-    const starttime = performance.now();
+
+    // https://stackoverflow.com/a/62805722/3152071
+    const starttime = process.uptime();
     wss.clients.forEach(function each(client) {
         if (client.readyState === WebSocket.OPEN) {
             client.send(msg);
             count++;
         }
     });
-    const endtime = performance.now();
+    const endtime = process.uptime();
+
+    console.log( "Updated "+count+" clients in "+(endtime-starttime+" seconds."));
 
 }
