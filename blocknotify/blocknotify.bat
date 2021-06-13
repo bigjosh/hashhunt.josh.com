@@ -3,7 +3,7 @@ REM Assumes that the hash of the new block is passed as an argument to this batc
 
 REM We need to specify the datadir used by `bitcoin-core` so that `blitcoin-cli` can find the cookie file to authenticate
 REM Really bitcoin-core, you could just have the deamon and cli use the same config file by default :/
-set datadir="d:\Documents\Programs\bitcoin\data"
+set datadir="D:\Documents\Programs\bitcoin\data\signet"
 
 bitcoin-cli -datadir=%datadir% getbestblockhash >%temp%\newblockhash.json
 

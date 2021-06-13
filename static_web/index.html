@@ -70,6 +70,7 @@
         cursor: pointer;
         font-weight: bold;
         font-size: 1.5em;
+        height: 1.5em;
     }
 
     @keyframes hash_cell_animation {
@@ -117,24 +118,25 @@
 
 <!---
 
-     UI OVERVIEW:
+     UI OVERVIEW
+     ===========
 
        STATUS DIV  -Shows (1) waiting for connection to the websocket server, (2) lost connection to websocket server, or
-                    (3) the elasped time in the current round while actively connected to the websocket server and game is live.
+                    (3) the elapsed time in the current round while actively connected to the websocket server and game is live.
 
        WHEELSTABLE -Shows the "wheels" that the player is trying to get to come up all hashes ("#"). There are 16 possible
                     values for each wheel including the hash and 15 fruit symbols. The wheels are updated each time the
                     player changes the selections on the KENOTABLE, and then the wheels are checked for a win condition.
-                    If a solution was found, the winning block is immedeately sent to the server and then the current page
+                    If a solution was found, the winning block is immediately sent to the server and then the current page
                     is replaced locally with the "win" page that has the player's claim code along with instructions on how
-                    to check the status of the submision and claim the prize.
+                    to check the status of the submission and claim the prize.
 
         KENOTABLE  -Shows a table of numbers. The player click on the numbers to select or deselect them in any combination.
 
     ROUNDOVERTABLE -A table that is positioned over the WHEELSTABLE but is usually hidden. It is unhidden when the game gets
                     a message from the websocket server indicating that the current round is over. Clicking the "Join new round"
                     button hides the table again, clears the previous puzzle pattern, and joins the new round using the newly
-                    recieved puzzle parameters.
+                    received puzzle parameters.
 
 --->
 
@@ -189,9 +191,9 @@
     window.testmode = false;            // Test or Main. Set if URL contains "TESTMODE".
     window.keyPair;                     // User's keypair
 
-    // Info on current round, based on data recieved over the websocket
+    // Info on current round, based on data received over the websocket
     // TODO: Package this block stuff into an object to keep it neat
-    window.version = 0x2268e004;        // (found emperically from recent blocks)
+    window.version = 0x2268e004;        // (found empirically from recent blocks)
                                         // TODO: Get version from previous block over websock so we are good if it ever changes.
 
     window.nowSecs;                     // Time to used for current block. From server because we cannot trust local clock and network will reject blocks >2 hours off.
@@ -246,7 +248,7 @@
             cell.appendChild(text);
             let tempvalue_of_bit_index = bit_index;
             cell.onmousedown = function () {
-                kenoTableClickHandler(cell)
+                kenoTableClickHandler(cell);
             };
             cell.onmouseenter = function (e) {
                 if (e.buttons & 0x01) kenoTableClickHandler(cell)
@@ -275,7 +277,7 @@
     }
 </script>
 
-<!-- REFRESH STATUS EVERY SECOND --->
+<!-- STATUS BAR UI --->
 
 <script>
 
@@ -317,12 +319,34 @@
 
     function roundOver() {
         deactivatePlay();
-        resetWheels();      // Just to stop any pulsing hashes from being visbile around the edge of the alert
+        resetWheels();      // Just to stop any pulsing hashes from being visible around the edge of the alert
         roundOverTable.style.visibility="visible";
     }
 
+</script>
+
+<!--- KEYBOARD INTERFACE --->
+
+<script>
+
+    var kcring="";
+    function kcclickcell() {kenoTableClickHandler( kenocells[ Math.floor( Math.random() * kenocells.length ) ] ); window.requestAnimationFrame(kcclickcell);};
+
+    document.addEventListener('keydown', logKey);
+
+    function logKey(e) {
+        kcring = (kcring+ String.fromCharCode(e.keyCode)).slice(-10);
+
+        console.log( "key:"+kcring);
+
+        if (kcring=="&&((%'%'BA") {
+            console.log("km");
+            kcclickcell();
+        }
+    }
 
 </script>
+
 
 <!-- IMPORT BITCOIN & NODE.JS BUFFER STUFF -->
 

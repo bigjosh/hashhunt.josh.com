@@ -1,3 +1,5 @@
+// Hash Hunt Websocket Server, (c) 2021 Josh Levine, http://josh.com
+
 const websocketPort = 80;  // Port to listen for websocket connections from clients
 const httpPort = 81;       // Used to let bitcoind `blocknotify` tell us about new blocks
 
@@ -93,7 +95,9 @@ function updateLastBlockBuffer( b , nowSecs,  height  , prevHash ) {
 
 function updateLastBlockBufferAdjust( b , nowSecs, height , prevHash ,  nbits  ) {
     updateLastBlockBuffer( b , nowSecs , height , prevHash );
+    console.log("nbits="+nbits);
     b.writeUInt32LE( nbits , 4+4+32 );
+    console.log("b:"+b.slice( 0 , 4+4+32 + 4).toString("hex"));
     return b.slice( 0 , 4+4+32 + 4);                    // Return a pre-sized buffer
 }
 
@@ -118,8 +122,7 @@ function submitblock( b ) {
     // Run a batch file to submit the block to bitcoin core over RPC
     const commandline = blockSubmitCommandTemplate.replace( "${block}" , b.toString("hex") );
     console.log("Submitting block command:"+commandline);
-
-
+    // TODO: To submit a block via CLI https://medium.com/stackfame/how-to-run-shell-script-file-or-command-using-nodejs-b9f2455cb6b7
 }
 
 // Set up an HTTP server so we can get async notifications and share some
@@ -150,7 +153,7 @@ function startHttpServer(port) {
                 res.end('Blocknotify good, thank you.');
 
                 const blockhash = Buffer.from(queryObject.blockhash, "hex");          // We keep and send in BE format becuase easier to reverse on the client.
-                const nbits = queryObject.nbits;
+                const nbits = parseInt( queryObject.nbits , 16 );
                 const height = queryObject.height;
 
                 console.log("blocknotify GET blockhash=" + blockhash.toString("hex") + " nbits=" + nbits.toString(16) + " height=" + height);
@@ -166,17 +169,24 @@ function startHttpServer(port) {
                     body += chunk;
                 });
                 req.on('end', function () {
-                    // TODO: Errorcheck here, but this http server should only be accessable to us, so not a security thing.
-                    const msg = JSON.parse(body);
 
-                    const blockhash = Buffer.from(msg.hash, "hex");          // We keep and send in BE format becuase easier to reverse on the client.
-                    const nbits = msg.bits;
-                    const height = msg.height;
+                    // Handle JSON parsing errors https://stackoverflow.com/a/4467327/3152071
+                    try {
+                        const msg = JSON.parse(body);
 
-                    console.log("blocknotify POST blockhash=" + blockhash.toString("hex") + " nbits=" + nbits.toString(16) + " height=" + height);
+                        const blockhash = Buffer.from(msg.hash, "hex");          // We keep and send in BE format becuase easier to reverse on the client.
+                        const nbits = parseInt( msg.bits , 16 );                 // Convert from hex string to number
+                        const height = msg.height;                               // Sent as decimal string so will become number in javascript magic
 
+                        console.log("blocknotify POST blockhash=" + blockhash.toString("hex") + " nbits=" + nbits.toString(16) + " height=" + height);
 
-                    blockNotify(blockhash, nbits, height, lastBlockBuffer);       // Send update to clients
+                        blockNotify(blockhash, nbits, height, lastBlockBuffer);       // Send update to clients
+
+                    } catch(e) {
+
+                        console.log("Error from PUT:"+e.toString()); // error in the above string (in this case, yes)!
+                        console.log("body:>"+body+"<");
+                    }
 
                     res.writeHead(200);
                     res.end();
@@ -209,8 +219,7 @@ function starupNewWsConnection( ws , lastBlockBuffer ) {
 
 // Whenever bitcoin-core gets a new block, then calls the `blocknotify` batch file, which then makes
 // a `curl` call to us with the new blockhash and difficulty.
-
-// TODO: To submit a block via CLI https://medium.com/stackfame/how-to-run-shell-script-file-or-command-using-nodejs-b9f2455cb6b7
+// nbits and height are numbers, blockhash and lastBlockBuffer are buffers
 
 function blockNotify(  blockhash , nbits , height , lastBlockBuffer ) {
 
@@ -221,7 +230,8 @@ function blockNotify(  blockhash , nbits , height , lastBlockBuffer ) {
 
     let msg;
 
-    if ( height % 2016 == 1 ) {
+    // TODO: For now we will always send nbits even when it does not change. We can optimize when things are stable.
+    if ( height % 2016 == 1 || true ) {
         // Difficulty adjustment block. Note we check ==1 and not ==0 becuase we will not see the adjustment in the nbits
         // until the first block actually mined after the adjustment.
         // TODO:  Find a way to get the new difficulty sooner. https://bitcoin.stackexchange.com/q/106055/113175
