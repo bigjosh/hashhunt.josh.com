@@ -14,7 +14,7 @@
     By the time you get to the end of this file, you will see that...
 
     1) It is possible for a user to pick a winning combination of numbers.
-    2) Five bitcoin will be awarded to the first user to find a winning combination in each round.
+    2) One bitcoin will be awarded to the first user to find a winning combination in each round.
     3) At no time will I ever touch the user's winnings or even have the opportunity to. The user
        will be able to claim their winnings directly using any bitcoin wallet that accepts a WIF formatted
        private key (all of them).
@@ -1036,8 +1036,8 @@
         o = b.writeBuffer(inTx, o);
 
         // Then outputs
-        o = b.writeUInt8(0x01, o);     // Output count
-        let outTx = P2PKHOutTx(5 * 1e8, publicKey);
+        o = b.writeUInt8(0x01, o);                      // Output count
+        let outTx = P2PKHOutTx(1 * 1e8, publicKey);     // One bitcoin worth of satoshis.
         o = b.writeBuffer(outTx, o);
 
         o = b.writeUInt32LE(0x00000000, o);        // Locktime
