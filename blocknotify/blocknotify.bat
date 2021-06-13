@@ -15,8 +15,6 @@ bitcoin-cli -datadir=%datadir% getblockheader %BH% >%temp%\newblockinfo.json
 REM POST the JSON file to our local server https://curl.se/docs/manpage.html#-d
 curl -d @%temp%\newblockinfo.json http://localhost:81/blocknotify
 
-pause
-
 del %temp%\newblockhash.json
 del %temp%\newblockinfo.json
  
