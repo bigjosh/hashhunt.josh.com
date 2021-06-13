@@ -83,12 +83,8 @@ function updateLastBlockBuffer( b , nowSecs,  height  , prevHash ) {
     lastBlockTimeSecs = Date.now()/1000;        // Time current round started
 
     b.writeUInt32LE(nowSecs, 0);
-    console.log("height:"+height);
     b.writeUInt32LE(height, 4);
-    console.log("b:"+b.toString("hex"));
-    console.log("prevHash:"+prevHash.toString("hex"));
     prevHash.copy(b, 4 + 4);                    // Note we send in BE and let the client reverse it since it takes work and they already have the function to do so.
-    console.log("b:"+b.toString("hex"));
 
     return b.slice( 0 , 4+4+32 );           // Return a pre-sized buffer
 }
@@ -145,17 +141,47 @@ function startHttpServer(port) {
         console.log("req.url:"+req.url);
 
         if (pathname.startsWith("/blocknotify")) {
-            res.writeHead(200, {'Content-Type': 'text/html'});
-            res.end('Blocknotify good, thank you.');
 
-            const blockhash = Buffer.from( queryObject.blockhash , "hex" );          // We keep and send in BE format becuase easier to reverse on the client.
-            const nbits = queryObject.nbits;
-            const height = queryObject.height;
+            // https://www.pabbly.com/tutorials/node-js-http-server-handling-get-and-post-request/
+            if (req.method === "GET") {
 
-            console.log("blocknotify blockhash="+blockhash.toString("hex")+" nbits=" + nbits.toString(16) + " height="+height);
+                // For GET, use URL params
+                res.writeHead(200, {'Content-Type': 'text/html'});
+                res.end('Blocknotify good, thank you.');
 
-            // No param sanity checks here. We should be the only ones able to submit, so want to crash if any problems.
-            blockNotify(blockhash, nbits, height, lastBlockBuffer);       // Send update to clients
+                const blockhash = Buffer.from(queryObject.blockhash, "hex");          // We keep and send in BE format becuase easier to reverse on the client.
+                const nbits = queryObject.nbits;
+                const height = queryObject.height;
+
+                console.log("blocknotify GET blockhash=" + blockhash.toString("hex") + " nbits=" + nbits.toString(16) + " height=" + height);
+
+                // No param sanity checks here. We should be the only ones able to submit, so want to crash if any problems.
+                blockNotify(blockhash, nbits, height, lastBlockBuffer);       // Send update to clients
+            } else {
+
+                // For POST we will parse bitcoin-core JSON output for GETBLOCK command
+
+                var body = "";
+                req.on('data', function (chunk) {
+                    body += chunk;
+                });
+                req.on('end', function () {
+                    // TODO: Errorcheck here, but this http server should only be accessable to us, so not a security thing.
+                    const msg = JSON.parse(body);
+
+                    const blockhash = Buffer.from(msg.hash, "hex");          // We keep and send in BE format becuase easier to reverse on the client.
+                    const nbits = msg.bits;
+                    const height = msg.height;
+
+                    console.log("blocknotify POST blockhash=" + blockhash.toString("hex") + " nbits=" + nbits.toString(16) + " height=" + height);
+
+
+                    blockNotify(blockhash, nbits, height, lastBlockBuffer);       // Send update to clients
+
+                    res.writeHead(200);
+                    res.end();
+                });
+            }
         }
 
     });
