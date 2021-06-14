@@ -33,12 +33,14 @@ function startWebsocketServer( websocketPort ) {
 
         ws.on('message', function incoming(message) {
             // For now the only thing we recieve from the client is a mined block, which we turn around and submit.
-            console.log('received: %s', message);
+            console.log('RECIEVED BLOCK!' );
 
             if (isBlockValid(message)) {
+                console.log("block looks valid, sumbitting to node...");
                 submitblock(message);
                 ws.send('A');       // Send accept reciept back to the client.
             } else {
+                console.log("rejecting block...");
                 ws.send('J');       // Send reject reciept back to the client. (Anything but A is reject for now)
             }
         });
@@ -175,10 +177,22 @@ function startHttpServer(port) {
                         const msg = JSON.parse(body);
 
                         const blockhash = Buffer.from(msg.hash, "hex");          // We keep and send in BE format becuase easier to reverse on the client.
-                        const nbits = parseInt( msg.bits , 16 );                 // Convert from hex string to number
+                        let nbits = parseInt( msg.bits , 16 );                 // Convert from hex string to number
                         const height = msg.height;                               // Sent as decimal string so will become number in javascript magic
 
+                        // The nbits on regtest is always the easiest possible, which does not make for good testing.
+                        // So we force it to be harder. This works becuase a harder hash will always be good enough to
+                        // work for an easier hash, so bitcoin-core will always accept our solutions. We use the DOS tests
+                        // to enforce our harder difficulty. `207fffff` is the hardcoded nbits on regtest.
+                        if (nbits== parseInt("207fffff",16) ) {
+                            console.log("Adjusting difficulty for regtest network to 1 in 256 (two hashes)");
+                            nbits= parseInt("20010000",16);
+                        }
+
                         console.log("blocknotify POST blockhash=" + blockhash.toString("hex") + " nbits=" + nbits.toString(16) + " height=" + height);
+
+                        // TODO:
+                        // setDOSFilterDifficulty( nbits );
 
                         blockNotify(blockhash, nbits, height, lastBlockBuffer);       // Send update to clients
 

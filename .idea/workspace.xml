@@ -3,6 +3,8 @@
   <component name="ChangeListManager">
     <list default="true" id="95c52d8f-2933-4813-ae80-33e226eb8627" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/blocknotify/blocknotify.bat" beforeDir="false" afterPath="$PROJECT_DIR$/blocknotify/blocknotify.bat" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/node-server/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/node-server/index.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/static_web/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/static_web/index.html" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -23,6 +25,7 @@
   </component>
   <component name="HighlightingSettingsPerFile">
     <setting file="file://$PROJECT_DIR$/node-server/index.js" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/static_web/index.html" root0="SKIP_INSPECTION" />
   </component>
   <component name="ProjectId" id="1slzC13RAtAB4PplLLrGgiRmcvC" />
   <component name="ProjectViewState">
@@ -58,7 +61,7 @@
       <workItem from="1621967618843" duration="97302000" />
       <workItem from="1622492945380" duration="36203000" />
       <workItem from="1622583258486" duration="45713000" />
-      <workItem from="1623385508364" duration="25778000" />
+      <workItem from="1623385508364" duration="30890000" />
     </task>
     <servers />
   </component>

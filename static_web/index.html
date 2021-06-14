@@ -587,9 +587,11 @@
         let blockHeaderHashHexString;
 
         // Set nonce to 1 so we only try one hash per click.
-        // Remember that we shall never beat the machines at their own game, so instead we must depend on our wits rather than brute speed.
+        // I know you are tempted to tamper with this.
+        // Do not.
+        // We will never beat the machines at their own game, so instead we must depend on our wits rather than brute speed.
 
-        let nonce =100000;
+        let nonce =1;
 
         do {
 
@@ -774,7 +776,7 @@
 
         addSubmisionStatus("Solution successfully submitted....");
 
-        // Suspenders - Send to our dedicated independant node that that does nothing but listen for these, just in case
+        // Suspenders - Send to our dedicated independent node that that does nothing but listen for these, just in case
         // something goes wrong with the websocket at least we will get the winning block onto the network...
         // TODO: Set up a node that accepts our winning blocks via HTTP post.
 
@@ -1191,7 +1193,7 @@
 
         if (b.length==1) {
             // This is a response to a submitted block so we add a message to the bottom of the win page.
-            if (b[0]=='A') {
+            if ( b[0]== ("A".charCodeAt(0)) ) {                      // https://stackoverflow.com/a/94049/3152071
                 addSubmisionStatus("Solution ACCEPTED by server.");
             } else {
                 addSubmisionStatus("Solution REJECTED by server.");
@@ -1242,8 +1244,8 @@
     }
 
     function submitBlockToServer( serializedBlock ) {
+        ws.send( serializedBlock );
         // TODO: Other ways also?
-        ws.write( serializedBlock );
     }
 
     // TODO: Serve static files also https://stackoverflow.com/a/20920463/3152071
