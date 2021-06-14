@@ -3,7 +3,9 @@
 const websocketPort = 80;  // Port to listen for websocket connections from clients
 const httpPort = 81;       // Used to let bitcoind `blocknotify` tell us about new blocks
 
-const blockSubmitCommandTemplate = "bitcoin-cli.exe submitblock ${block}";  // Passed to exec to submit a found block
+// Passed to exec to submit a found block using the script in `bitcoin-core-scripts`
+// https://nodejs.org/api/path.html#path_path_join_paths
+const blockSubmitCommandTemplate = require("path").join( "bitcoin-core-scripts" , "submitblock.bat") + " ${block}";
 
 let lastBlockBuffer = Buffer.alloc(256);    // Keep a prefilled buffer around so we can quickly update and send it. Make it way too big here and know about lengths in the code below.
 let lastBlockTimeSecs =0;                   // Time current round started. Updated in update buffer functions.
@@ -116,6 +118,7 @@ function updateLastBlockBufferDelay(b) {
     return b.slice( 0 , 4+4+32+4 + 2);                    // Return a pre-sized buffer
 }
 
+const child_process = require('child_process');
 
 // Submit a block to the local bitcoind using the cli
 
@@ -124,6 +127,17 @@ function submitblock( b ) {
     // Run a batch file to submit the block to bitcoin core over RPC
     const commandline = blockSubmitCommandTemplate.replace( "${block}" , b.toString("hex") );
     console.log("Submitting block command:"+commandline);
+    child_process.exec( commandline ,  function(err, stdout, stderr) {
+        if (err) {
+            //some err occurred
+            console.error("ERROR:"+err);
+        } else {
+            // the *entire* stdout and stderr (buffered)
+            console.log(`stdout: ${stdout}`);
+            console.log(`stderr: ${stderr}`);
+        }
+    });
+
     // TODO: To submit a block via CLI https://medium.com/stackfame/how-to-run-shell-script-file-or-command-using-nodejs-b9f2455cb6b7
 }
 
