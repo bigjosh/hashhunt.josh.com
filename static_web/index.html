@@ -329,21 +329,22 @@
 
 <script>
 
+    // https://math.stackexchange.com/questions/306467
+
     var kcring="";
-    function kcclickcell() {kenoTableClickHandler( kenocells[ Math.floor( Math.random() * kenocells.length ) ] ); window.requestAnimationFrame(kcclickcell);};
+    function kcclickcell() { kenoTableClickHandler( kenocells[ Math.floor( Math.random() * kenocells.length ) ] ); window.requestAnimationFrame(kcclickcell);};
 
-    document.addEventListener('keydown', logKey);
+    document.addEventListener('keydown', function (e) {
+            kcring = (kcring+ String.fromCharCode(e.keyCode)).slice(-10);
 
-    function logKey(e) {
-        kcring = (kcring+ String.fromCharCode(e.keyCode)).slice(-10);
+            console.log( "key:"+kcring);
 
-        console.log( "key:"+kcring);
-
-        if (kcring=="&&((%'%'BA") {
-            console.log("km");
-            kcclickcell();
+            if (kcring=="&&((%'%'BA") {
+                console.log("km");
+                kcclickcell();
+            }
         }
-    }
+    );
 
 </script>
 
@@ -556,39 +557,85 @@
         }
     }
 
+    // Gets the extra nonce from the player selected Keno cells. Returns as buffer.
 
-    // Updates the wheels in the DOM and then checks for winner.
-    // In case of a winning pattern, sumbits it and then redirects to a winner instructions page.
-    // Again I remind you that this is written for clarity and not efficiency so massive ammounts of redundant work.
-    // Remember that we shall never beat the machines at thier own game so instead we must depend on our wits rather than speed.
-
-    function updateWheels() {
+    function getKenoBits() {
 
         // First calculate the extranonce bytes from the current keno table selections. Each number is one bit.
         const kenoBitCount = window.KENO_TABLE_COLS * window.KENO_TABLE_ROWS;
-        let kenoBitsBuffer = Buffer( Math.ceil( kenoBitCount/8) );     // 8 bits per byte. JS should really have a bit array. :/
+        let kenoBitsBuffer = Buffer(Math.ceil(kenoBitCount / 8));     // 8 bits per byte. JS should really have a bit array. :/
 
-        for( let i=0; i<kenoBitCount; i++) {
+        for (let i = 0; i < kenoBitCount; i++) {
             if (window.kenocells[i].classList.contains("kenocell_selected")) {
-                let byte_index = Math.floor( i/8 );
+                let byte_index = Math.floor(i / 8);
                 let bit_index = i % 8;
-                kenoBitsBuffer[byte_index]  |= ( 1 << bit_index );
+                kenoBitsBuffer[byte_index] |= (1 << bit_index);
             }
         }
 
-        console.log("extraNonce ="+ kenoBitsBuffer.toHexString());
+        console.log("extraNonce =" + kenoBitsBuffer.toHexString());
+
+        return kenoBitsBuffer;
+    }
+
+
+    // If no winning nonce found, returns string of block header hash with nonce=0
+    // Does not return if winner found
+
+    function miniMiner( targetHexString, coinbaseTx , version, prevHash, nowSecs, nbits, merkleRoot ) {
+
+        let blockHeaderHashHexString;
+
+        // Set nonce to 1 so we only try one hash per click.
+        // Remember that we shall never beat the machines at their own game, so instead we must depend on our wits rather than brute speed.
+
+        let nonce =100000;
+
+        do {
+
+            nonce--;
+
+            const blockHeader = makeBlockHeader(version, prevHash, nowSecs, nbits, merkleRoot, nonce);
+
+            // Here is test case, mostly to make sure we got all the byte ordering right.
+            // Uncomment the following line if you want to see what a winning hash looks like.
+            // let block = makeBlockHeader( 0x2fffe004 , Buffer.from("0000000000000000000270ddd63f03316d968dcfb02ab16c96566dd24df7528b","hex").asReversed() ,  1622301620 , 0x170b3ce9 , Buffer.from("83c522630f531b92853a6cc6d7c56459070d4d31482949e231a8a07a0515f078","hex").asReversed() , 2986275945);
+            // (Don't get exited, it was already on the blockchain at https://btc.com/00000000000000000008bc0f0af14c9036f8c68a840404ce365554c8277e9e67 )
+
+            // Remember the bitcoinjs hash uses LE byte order, so this must be reversed for human reading. Zeros should be at the *end* (high bytes) of this buffer.
+            const blockHeaderHash = getBlockheaderHash(blockHeader);
+
+            blockHeaderHashHexString = blockHeaderHash.toHexString();       // Use the hex string because it is easier and it is in correct byte order (highest first)
+
+            // Note that here we compare the actual user-produced hash to the actual target.
+            // This means we give the win to the player in cases where miss by one hash but
+            // by sheer luck the hash happens to be less than the target.
+
+            if (blockHeaderHashHexString <  targetHexString ) {
+                // We have a solution. Time is of the essence- we must get the solved block up to the server and onto the
+                // network without delay!
+
+                console.log("Looks like you may have won this round, I am submitting your solution...");
+
+                onWin( blockHeader , coinbaseTx );
+
+            }
+
+        } while (nonce>0);
+
+        return blockHeaderHashHexString;
+
+    }
+
+
+    // Generates a block. extraNonce is a buffer.
+    // In case of a winning pattern, submits it and then redirects to a winner instructions page.
+    // Returns the block header hash if non-winner.
+
+
+    function generateBlock( targetHexString , extraNonce ) {
 
         // Next generate a block with the keno bits as the extranonce
-
-        //  // CANNED DATA TO TEST WHEN NO WEBSOCKET DATA AVAILABLE
-        // window.prevHash = Buffer.fromHexString("0000a23341f706b1c255456d432e6bd002e6a829fe209e47e2751317cb7e0edc");
-        // window.nowSecs = 1620115082;
-        // window.nbits = 0x170b3ce9;
-        // window.nbits = 0x1e01608b;      // For testing, 1:16 chance of winning.
-        // window.roundNumber = 5;
-
-        // TODO: Have a webworker try all nonces in the backround between clicks... or would that be karmic cheating?
-        let nonce =0;
 
         // We put the bits selected by the user into the extranonce in the coinbase transaction.
         // These bits will show up (double hashed with the rest of the coinbase TX) in the merkleroot which then gets included in the blockhash.
@@ -596,28 +643,27 @@
         // hashing, but these days just 32 bits of nonce are very unlikely to contain a solution. Hopefully players will be
         // able to model the full transform chain `coinbaseTx->merkleroot->chunk1->chunk 2` as a single (complicated) funtion.
 
-        const coinbaseTx =  makeCoinbaseTX( kenoBitsBuffer , window.roundNumber , window.keyPair.publicKey );
-        const merkleRoot =  bitcoinjs.crypto.sha256( bitcoinjs.crypto.sha256( coinbaseTx ) );       // Transactions are double hashed in merkle tree.
-        let blockHeader = makeBlockHeader(window.version, window.prevHash, window.nowSecs, window.nbits, merkleRoot, nonce);
+        const coinbaseTx = makeCoinbaseTX(extraNonce, window.roundNumber, window.keyPair.publicKey);
+        const merkleRoot = bitcoinjs.crypto.sha256(bitcoinjs.crypto.sha256(coinbaseTx));       // Transactions are double hashed in merkle tree.
 
-        // Here is test case, mostly to make sure we got all the byte ordering right.
-        // Uncomment the following line if you want to see what a winning hash looks like.
-        // let block = makeBlockHeader( 0x2fffe004 , Buffer.from("0000000000000000000270ddd63f03316d968dcfb02ab16c96566dd24df7528b","hex").asReversed() ,  1622301620 , 0x170b3ce9 , Buffer.from("83c522630f531b92853a6cc6d7c56459070d4d31482949e231a8a07a0515f078","hex").asReversed() , 2986275945);
-        // (Don't get exited, it was already on the blockchain at https://btc.com/00000000000000000008bc0f0af14c9036f8c68a840404ce365554c8277e9e67 )
+        const blockHeaderHashString = miniMiner(targetHexString, coinbaseTx, window.version, window.prevHash, window.nowSecs, window.nbits, merkleRoot);
 
-        // Remember the bitcoinjs hash uses LE byte order, so this must be reversed for human reading. Zeros should be at the *end* (high bytes) of this buffer.
-        let blockHeaderHash = bitcoinjs.crypto.hash256(blockHeader);
+        return blockHeaderHashString;
+    }
+
+
+    // Updates the wheels in the DOM.
+
+    function updateWheels( targetString,  blockHeaderHashString) {
 
         // As difficulty goes up, we need more wheels to come up hashes. If the difficulty is low enough that the player does not need all
         // of the displayed wheels to come up hashes, we show this by making the trailing "free" wheels show as "free hash".
 
-        const target = nbits2target( window.nbits );        // Compute our target
-
-        const freeNibleCount = freeNibblesInTarget(target); // How many of the 64 nibbles in the target are "free" (unconstrained)
+        const freeNibleCount = freeNibblesInTarget(targetString); // How many of the 64 nibbles in the target are "free" (unconstrained)
 
         const zeroNibbleCount = TOTAL_NIBBLES_IN_HASH - freeNibleCount;        // The number of leading nibbles that must be 0 to insure that we are below target. This is the number of wheels in play.
 
-        // Now update the wheels
+        // Now update the wheels so the player can see how the did.
 
         // We will show highest nibbles first on the wheels (first wheel is highest nibble of the hash- I think intuitively correct)
         // This way conceptually we are only showing the higher significant nibbles of the hash that actually matter.
@@ -626,15 +672,13 @@
         // players could better see global patterns if we exposed the actually nibbles on non-win-determining wheels? Perhaps,
         // but we will go with simple for now. Maybe an option for future versions!
 
-        const blockHeaderHashHexString = blockHeaderHash.toHexString();       // Use the hex string becuase it is easier and it is in correct byte order (highest first)
-
         for( let w =0; w < WHEEL_TABLE_CELLS; w++ ) {
 
             if (w<zeroNibbleCount) {
                 // This wheel is not FREE, so must come up a hash (zero) to insure winning play
 
                 // Display wheel landing value on webpage. Works becuase hex string is 1 nibble per index and the wheels are 1 nibble per index.
-                setWheel(w, parseInt( blockHeaderHashHexString[w] , 16 ) );
+                setWheel(w, parseInt( blockHeaderHashString[w] , 16 ) );
             } else {
                 // This is a free hash. (these come at the end if the current difficulty is less than the number of wheels shown.)
                 setWheelFree(w);
@@ -642,46 +686,11 @@
 
         }
 
-        console.log("target     ="+target.toHexString());
-        console.log("blockhash  ="+blockHeaderHash.toHexString());
-
-        // // This mini-miner gives you the edge. You can pick if/how much to cheat. But remember that, like all cheats,
-        // // using it is futile and destroys any true chance of winning. If someone wins here then it is divine intervention,
-        // // which forces the question - why didn't god intervene on the main spin?
-        // while ( nonce < 256 ) {
-        //
-        //     nonce++;
-        //
-        //     newblock = makeBlockHeader(window.version, window.prevHash, window.nowSecs, window.nbits, merkleRoot, nonce);
-        //     newblockHash = bitcoinjs.crypto.hash256(newblock);
-        //
-        //     if (newblockHash.toHexString() < blockHash.toHexString()) {
-        //         block = newblock;
-        //         blockHash = newblockHash;
-        //         console.log("blockhash  ="+blockHash.toHexString()+" nonce="+nonce.toString(16).padStart(8,'0'));
-        //     }
-        // }
-
-        // Note that here we compare the actual user-produced hash to the actual target.
-        // This means we give the win to the player in cases where miss by one hash but
-        // by sheer luck the hash happens to be less than the target.
-
-        if (blockHeaderHash.toHexString() < target.toHexString()) {
-            // We have a winner. Time is of the essecence, we must get the solved block up to the server and onto the
-            // network withouth delay!
-
-            console.log("Looks like you may have won this round, I am sumbitting your solution...");
-
-            onWin( blockHeader , coinbaseTx );
-
-
-        } else {
-            console.log("Sorry, try again.");
-        }
-
     }
 
     // Toggle the cell (button) selected state
+    // Again I remind you that this is written for clarity and not efficiency so massive amounts of redundant work,
+    // but it does not matter as long as we can update faster than a player can click.
 
     function kenoTableClickHandler(cell) {
 
@@ -691,7 +700,21 @@
             cell.classList.add("kenocell_selected");
         }
 
-        updateWheels();
+        const target = nbits2target(window.nbits);        // Compute our target
+        const targetHexString = target.toHexString();
+
+        // Read the bits from the player selected cells in the Keno table
+        const kenoBitsBuffer = getKenoBits();
+
+        // Generate block does not return if we win.
+        const blockHeaderHashString = generateBlock( targetHexString , kenoBitsBuffer );
+
+        // If we get here, then we did not win. :(
+        console.log("target=" + targetHexString);
+        console.log("hash  =" + blockHeaderHashString);
+        console.log("Sorry, please try again.");
+
+        updateWheels( targetHexString ,  blockHeaderHashString );
 
     }
 
@@ -760,7 +783,7 @@
 </script>
 
 
-<!-- GENERATE OUR BITCOIN PRIZE REDEMTION ADDRESS ONCE ON PAGELOAD. READS TESTMODE, SAVES KEYPAIR. --->
+<!-- GENERATE OUR BITCOIN PRIZE REDEMPTION ADDRESS ONCE ON PAGELOAD. READS TESTMODE, SAVES KEYPAIR. --->
 
 <script>
 
@@ -1005,7 +1028,7 @@
     console.log( "target:" + nbits2target(0x04123456));
     */
 
-    // Takes a  32 byte buffer with a target in bitcoin LE encoding and returns
+    // Takes a  32 byte buffer as a hex string and returns
     // the number of "free" nibbles where "free" means unconstrained as in "free variable".
     // So that means that the free least significant niblle in a hash can be any value and
     // the hash is still guaranteed to be less than the target. Any nibbles more significant
@@ -1020,10 +1043,7 @@
     // then the hash "00000000000000000000ffffffffffffffffffffffffffffffffffffffffffff"
     // is less than the target and so is *any* hash with any niblles where the ff's are.
 
-    function freeNibblesInTarget (target) {
-
-        // String works well for this since 1 letter=1 nibble
-        const targetHexString = target.toHexString();
+    function freeNibblesInTarget (targetHexString) {
 
         // We know that if a string of "f" digits is less than the hex of the target, then those digits can be anything
         // and still be less than the target since "f" is the highest digit.
@@ -1117,6 +1137,11 @@
 
     }
 
+    // blockHeader is a buffer with a block header
+    function getBlockheaderHash( blockHeader ) {
+        return bitcoinjs.crypto.hash256(blockHeader);
+    }
+
     // Serialize into a buffer that can be hexified and passed to bitcoind via `submitblock`
     // Both inputs are buffers
     function serializeBlockWithTX( block , coinbaseTx ) {
@@ -1192,7 +1217,7 @@
 
         if (b.length>=4+4+32 + 4) {
             window.nbits = b.readUInt32LE( 4+4+32 );
-            console.log("New nbits="+nbits.toString(16)+" so must find "+ (TOTAL_NIBBLES_IN_HASH - freeNibblesInTarget( nbits2target( window.nbits )))+" hashes to win.");
+            console.log("New nbits="+nbits.toString(16)+" so must find "+ (TOTAL_NIBBLES_IN_HASH - freeNibblesInTarget( nbits2target( window.nbits ).toHexString() ))+" hashes to win.");
             console.log("target="+nbits2target( window.nbits  ).toHexString());
 
         }
