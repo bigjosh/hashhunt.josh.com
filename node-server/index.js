@@ -196,12 +196,13 @@ function startHttpServer(port) {
 
                         // The nbits on regtest is always the easiest possible, which does not make for good testing.
                         // So we force it to be harder. This works becuase a harder hash will always be good enough to
-                        // work for an easier hash, so bitcoin-core will always accept our solutions. We use the DOS tests
-                        // to enforce our harder difficulty. `207fffff` is the hardcoded nbits on regtest.
-                        if (nbits== parseInt("207fffff",16) ) {
-                            console.log("Adjusting difficulty for regtest network to 1 in 256 (two hashes)");
-                            nbits= parseInt("20010000",16);
-                        }
+                        // work for an easier hash. `207fffff` is the hardcoded nbits on regtest.
+                        // Note that these fake-hard blocks will not be accepted by bitcoin core since the nbits doesn't match expected value.
+
+                        // if (nbits== parseInt("207fffff",16) ) {
+                        //     console.log("Adjusting difficulty for regtest network to 1 in 256 (two hashes)");
+                        //     nbits= parseInt("20010000",16);
+                        // }
 
                         console.log("blocknotify POST blockhash=" + blockhash.toString("hex") + " nbits=" + nbits.toString(16) + " height=" + height);
 

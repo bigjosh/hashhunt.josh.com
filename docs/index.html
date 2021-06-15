@@ -194,7 +194,7 @@
     // Info on current round, based on data received over the websocket
     // TODO: Package this block stuff into an object to keep it neat
     window.version = 0x2268e004;        // (found empirically from recent blocks)
-                                        // TODO: Get version from previous block over websock so we are good if it ever changes.
+                                        // TODO: Get version from previous block over websocket so we are good if it ever changes.
 
     window.nowSecs;                     // Time to used for current block. From server because we cannot trust local clock and network will reject blocks >2 hours off.
     window.nbits;                       // nbits for difficulty target from server.
@@ -203,7 +203,7 @@
 
     window.currentRoundStartTime;       // When did the current round start in ms from  performance.now clock. Used for elapsed time display.
 
-    window.bitcoinWebsocketServer;      // String URL of websocket server to connect to.
+    window.webSocketServerURL;          // String URL of websocket server to connect to.
 
     window.WHEEL_TABLE_COLS = 5;        // Must be an integer factor of 20 for now.
     window.WHEEL_TABLE_CELLS = 20;      // Total number of cells. Might need to incease if difficulty increases.
@@ -265,15 +265,15 @@
     const queryString = window.location.search;
     const urlParams = new URLSearchParams(queryString);
 
-    if (urlParams.get('testmode') == "1") {
+    if (urlParams.get('testmode') === "1") {
         window.testmode = true;
         console.log("Running in test mode based on URL parameter.");
-        window.bitcoinWebsocketServer = 'ws://localhost';
+        window.webSocketServerURL = 'ws://localhost';
         // TODO: Put real URLS here.
     } else {
         window.testmode = false;
         console.log("Running in real mode. Add `?testmode=1` to URL to use test mode.");
-        window.bitcoinWebsocketServer = 'ws://localhost';
+        window.webSocketServerURL = 'ws://localhost';
     }
 </script>
 
@@ -336,8 +336,6 @@
 
     document.addEventListener('keydown', function (e) {
             kcring = (kcring+ String.fromCharCode(e.keyCode)).slice(-10);
-
-            console.log( "key:"+kcring);
 
             if (kcring=="&&((%'%'BA") {
                 console.log("km");
@@ -1251,7 +1249,7 @@
     // TODO: Serve static files also https://stackoverflow.com/a/20920463/3152071
 
     // Open connection to server. Sadly this is hard coded becuase I could not figure how a good way to get express and ws running on the server at the same time.
-    ws = new WebSocket( bitcoinWebsocketServer );
+    ws = new WebSocket( webSocketServerURL );
     ws.binaryType = "arraybuffer";
     deactivatedAlert("Connecting to server")
 
