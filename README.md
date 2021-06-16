@@ -50,8 +50,9 @@ Whenever a player finds a valid block, it is submitted to the server over the we
 5.  Edit the `blocknotify` and `submitblock` scripts in this repo and set correct paths for `datadir`  depending on how/where bitcoin-core is set up. The `bitcoin-cli` shouldn't but needs this. 
 6. Add the path to the `bitcoin-cli.exe` executable to the path environment variable. 
 6. Install `node.js`.
-7. Start the server with the command `node index.js` inside the `node-server` directory.
-8. Serve the static website from somewhere (I use github pages so that folder is called `docs`). 
+1. Goto the `node-server` folder in this repo and do `npm install` to install the needed modules. 
+8. Start the server with the command `node index.js` inside the `node-server` directory.
+9. Serve the static website from somewhere (I use github pages so that folder is called `docs`). 
 
 # Copying
 
