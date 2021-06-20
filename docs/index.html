@@ -1214,7 +1214,11 @@
     // We will get a new target along with the prevHash at startup and every 2016th block when difficulty is adjusted
     // We should get the time since last block only on startup (the first message recieved)
 
+    // Message types are differentiated by their length for size efficiency on the most common sends.
+
     function processWebsocketData(b) {
+
+        // Len=1 for block accepted or rejected by server.
 
         if (b.length==1) {
             // This is a response to a submitted block so we add a message to the bottom of the win page.
@@ -1224,6 +1228,11 @@
                 addSubmisionStatus("Solution REJECTED by server.");
             }
             return;
+        }
+
+        if (b.length==20) {
+            // Server had accepted the block, then 'submitblock'ed it to bitcoin-core, and this is the text output from that.
+            addSubmisionStatus("Network result:"+b.toString());
         }
 
         // All messages should at least have these fields, sent everytime there is a new block on the network.

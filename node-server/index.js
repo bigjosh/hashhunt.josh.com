@@ -6,7 +6,7 @@ const httpPort = 81;       // Used to let bitcoind `blocknotify` tell us about n
 // Passed to exec to submit a found block. bitcoin-cli must be in PATH.
 // Note that I would have prefered to make this a script, but I could not figure out how to
 // capture the output from a command inside a batch file and then re-emitt it to the calling program.
-const blockSubmitCommandTemplate = "bitcoin-cli submitblock ${block}";
+const blockSubmitCommandTemplate = "bitcoin-cli -datadir=D:\\Documents\\Programs\\bitcoin\\data\\regtest submitblock ${block}";
 
 let lastBlockBuffer = Buffer.alloc(256);    // Keep a prefilled buffer around so we can quickly update and send it. Make it way too big here and know about lengths in the code below.
 let lastBlockTimeSecs =0;                   // Time current round started. Updated in update buffer functions.
@@ -36,12 +36,12 @@ function startWebsocketServer( websocketPort ) {
 
         ws.on('message', function incoming(message) {
             // For now the only thing we recieve from the client is a mined block, which we turn around and submit.
-            console.log('RECIEVED BLOCK!' );
+            console.log('RECIEVED BLOCK!:' + message.toString("hex") );
 
             if (isBlockValid(message)) {
                 console.log("block looks valid, sumbitting to node...");
                 submitblock(message , function(s) {
-                    console.log("In cb:"+s);
+                    ws.send( s.padEnd( 20 , " ").substr( 0 , 20) );     // Len=20 indicates the final result string from submitblock.
                 });
                 ws.send('A');       // Send accept reciept back to the client.
             } else {
@@ -55,39 +55,24 @@ function startWebsocketServer( websocketPort ) {
 
 }
 
-// Returns a 256 bit/32 byte buffer of the target in bitcoin LE format
-// Based on https://developer.bitcoin.org/reference/block_chain.html#target-nbits
-// Test here https://dlt-repo.net/bitcoin-target-calculator/
-// I think the string functions end up being more elegant than the typical math-based solutions, don't you?
-
-function nbits2target(nbits) {
-    const significand = nbits & 0x00ffffff;
-    const exponent = nbits >>> (8*3);
-
-    // (all `*2` are becuase calcuations are in bytes, but in string 1 byte = 2 letter places)
-
-    const fixed6SigString =  (significand.toString(16)).padStart( 3*2 , "0");
-    //  a 3 digit (6 byte) hex string with a leading fixed point
-
-    const paddedSigString = ("00").repeat(32) + fixed6SigString + ("00").repeat(32) ;
-    // padded string has a fixed (hexa)decimal point after byte 32
-
-    const expString = paddedSigString.slice( exponent*2, (32+exponent)*2);
-    // Now we move the point to the right exp bytes
-
-    return Buffer.fromHexString( expString );     // Put back in bitcoin LE format
-}
-
 // Checks that a block is ours based on if the coinbase has hashhunt data in it
+// For now I want to leave this wide open so anyone can independently do end-to-end testing
+// to make sure everything is on the up-and-up.
+// Not sure why anyone would want to DOS a system like this, but if they do I can add
+// checks here to make sure the height is right and the block hash checks out so DOSing
+// would be as expensive as just mining!
 
 function isBlockValid(b) {
 
-    // Make sure it is one of ours
-    if (b.slice(125,24).toString() != "/Play Hashhunt.josh.com/") {
+    // Make sure it is one of ours.
+    // The position of the string in the block was found empirically and may need to be updated if anything
+    // in the client block generation code changes.
+    if (b.slice(126,126+22).toString() != "Play Hashhunt.josh.com") {
+        console.log("mismatch block tag:"+b.slice(125,24).toString());
         return false;
     }
 
-    return true;        // (for now)
+    return true;
 }
 
 // **** We use this buffer to send updates to the clients over the websocket.
@@ -155,18 +140,17 @@ function submitblock( b , cb ) {
     const commandline = blockSubmitCommandTemplate.replace( "${block}" , b.toString("hex") );
     console.log("Submitting block command:"+commandline);
     child_process.exec( commandline ,  function(err, stdout, stderr) {
+        let cbString="";
         if (err) {
             //some err occurred
-            const cbString ="ERROR:"+err;
+            cbString ="ERROR:"+err;
+            cb("ERROR NUM:"+err);
         } else {
-            // the *entire* stdout and stderr (buffered)
-            const cbString = "stdout: ${stdout}, stderr: ${stderr}";
+            console.log( `submitblock result: stdout=${stdout}, stderr=${stderr}`);
+            cb(stdout);     // The stdout from submitblock has any reject reasons as text
         }
-        console.log("submitBlock callback:"+cbString);
-        cb(cbString);
     });
 
-    // TODO: To submit a block via CLI https://medium.com/stackfame/how-to-run-shell-script-file-or-command-using-nodejs-b9f2455cb6b7
 }
 
 // Set up an HTTP server so we can get async notifications and share some
