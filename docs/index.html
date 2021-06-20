@@ -179,7 +179,7 @@
 
 
     <div style="display: block; width: 100%;">
-        <table id="kenotable" style="width: 100%;"></table>
+        <table id="kenotable" class="disabled" style="width: 100%;"></table>
     </div>
 </div>
 
@@ -198,12 +198,13 @@
 
     window.nowSecs;                     // Time to used for current block. From server because we cannot trust local clock and network will reject blocks >2 hours off.
     window.nbits;                       // nbits for difficulty target from server.
+    window.forceNbits=false;            // You can overrde the nbits frm the websocket server for testing
     window.prevHash;                    // 32 byte buffer with previous block hash. Stored in bincoin LE order.
     window.roundNumber;                 // UINT32
 
     window.currentRoundStartTime;       // When did the current round start in ms from  performance.now clock. Used for elapsed time display.
 
-    window.webSocketServerURL;          // String URL of websocket server to connect to.
+    // UI constants and element indexes
 
     window.WHEEL_TABLE_COLS = 5;        // Must be an integer factor of 20 for now.
     window.WHEEL_TABLE_CELLS = 20;      // Total number of cells. Might need to incease if difficulty increases.
@@ -213,9 +214,15 @@
     window.KENO_TABLE_COLS = 8;
     window.kenocells = [];              // Quick indexed access to the cells.
 
+
+    // Divinely defined by the bitcoin gods
+    const TOTAL_NIBBLES_IN_HASH = 64;   // A hash is 256 bits = 32 bytes = 64 nibbles
+
+    // Web socket stuffs
+    window.webSocketServerURL;          // String URL of websocket server to connect to.
     window.ws = null;                   // Websocket connection to our server.
 
-    const TOTAL_NIBBLES_IN_HASH = 64;   // A hash is 256 bits = 32 bytes = 64 nibbles
+    const default_ws_server = "http://hashunt-ws.josh.com";     // Default web socket server. Can be overridden with "?ws=XXXX"
 
 </script>
 
@@ -259,22 +266,30 @@
     }
 </script>
 
-<!--- GET OUR MODE FROM URL --->
+<!--- GET OUR OPTIONAL WEB SOCKET SERVER FROM URL --->
 
 <script>
     const queryString = window.location.search;
     const urlParams = new URLSearchParams(queryString);
 
-    if (urlParams.get('testmode') === "1") {
-        window.testmode = true;
-        console.log("Running in test mode based on URL parameter.");
-        window.webSocketServerURL = 'ws://localhost';
-        // TODO: Put real URLS here.
+    const ws_param = urlParams.get('ws')
+
+    if (ws_param) {
+        console.log("Using alternate websocket server based on URL `ws` parameter. Prizes not guaranteed.");
+        window.webSocketServerURL = ws_param;
     } else {
-        window.testmode = false;
-        console.log("Running in real mode. Add `?testmode=1` to URL to use test mode.");
-        window.webSocketServerURL = 'ws://localhost';
+        console.log("Using default websocket server.");
+        window.webSocketServerURL = window.default_ws_server;
     }
+
+    const nbits_param = urlParams.get('nbits')
+
+    if (nbits_param) {
+        console.log("Using forced nbits. Prizes not guaranteed.");
+        window.nbits = nbits_param;
+        window.forceNbits = true;
+    }
+
 </script>
 
 <!-- STATUS BAR UI --->
@@ -502,6 +517,30 @@
 
 </script>
 
+<!-- GENERATE OUR BITCOIN PRIZE REDEMPTION ADDRESS ONCE ON PAGELOAD. READS TESTMODE, SAVES KEYPAIR. --->
+
+<script>
+
+    function getAddressFromKeyPair( kp ) {
+        bitcoinjs.payments.p2pkh({ pubkey: kp.publicKey ,  network  }).address;
+    }
+
+    let network;
+
+    if (testmode) {
+        network = bitcoinjs.networks.testnet;
+    } else {
+        network = bitcoinjs.networks.main;
+    }
+
+    window.keyPair = bitcoinjs.ECPair.makeRandom( {network: network} );
+
+    console.log( "Prize redemption key (do not tell to ANYONE or they can claim your prizes!):"+ window.keyPair.toWIF());
+    // You can test WIFs at http://gobittest.appspot.com/PrivateKey or import them into bitcoin-core
+    // with the commmand "importprivkey [key] [name for key in wallet]"
+
+</script>
+
 <!--- MEAT OF THE CODE RUNS HERE WHENEVER A KENO CELL IS CLICKED. WE UPDATE THE EXTRANONCE, GENERATE A BLOCK, AND CHECK THE NEW HASH FOR A WIN. --->
 
 <script>
@@ -617,7 +656,7 @@
 
                 console.log("Looks like you may have won this round, I am submitting your solution...");
 
-                onWin( blockHeader , coinbaseTx );
+                onWin( blockHeaderHashHexString , blockHeader , coinbaseTx );
 
             }
 
@@ -731,7 +770,7 @@
         statusupdatelist.appendChild(li);
     }
 
-    function onWin( blockHeader , coinbaseTx ) {
+    function onWin( blockHeaderHashHexString , blockHeader , coinbaseTx ) {
 
         // Now create and show a winner info page. Do it locally to avoid any network problems or delays.
         // https://www.w3schools.com/jsref/met_win_open.asp
@@ -743,6 +782,14 @@
 
         document.writeln("<h2>Your Hash Hunt prize claim code is:</h2>");
         document.writeln("<pre>"+window.keyPair.toWIF()+"</pre>");
+
+        if (webSocketServerURL != default_ws_server) {
+            document.writeln("<h3 style='background: darkred; padding=2px;color: white'>NON-STANDARD WEBSOCKET SERVER SPECIFIED - PRIZE NOT GUARANTEED!</h3>");
+        }
+
+        if (forceNbits) {
+            document.writeln("<h3 style='background: darkred; padding=2px;color: white'>FORCE NBITS SPECIFIED - PRIZE NOT GUARANTEED!</h3>");
+        }
 
         document.writeln("<p>It is very important that you save your claim code someplace very");
         document.writeln("   safe.</p>");
@@ -758,8 +805,12 @@
         document.writeln("   <p>Do it <b>NOW</b>. If you loose this code then you will not be able to claim");
         document.writeln("   your prize. Do not share it with anyone who you do not 100% trust since anyone");
         document.writeln("   with this code can claim your prize. </p>");
+        document.writeln("<h2>Status check links</h2>");
+        document.writeln("<a target='_blank' href='https://btc.com/"+blockHeaderHashHexString+"'>Check if solution was accepted by the network</a>");
+        document.writeln("<br>");
+        document.writeln("<a target='_blank' href='https://btc.com/"+getAddressFromKeyPair(window.keyPair)+"'>Check if prize is available to be claimed</a>");
 
-        document.writeln("<h2>Live Submision Status Updates Here</h2>");
+        document.writeln("<h2>Live Submision Updates Here</h2>");
 
         document.writeln("<ul id='statusupdatelist' style='list-style-type:none;'></ul>");
 
@@ -782,30 +833,6 @@
 
 </script>
 
-
-<!-- GENERATE OUR BITCOIN PRIZE REDEMPTION ADDRESS ONCE ON PAGELOAD. READS TESTMODE, SAVES KEYPAIR. --->
-
-<script>
-
-    function getAddressFromKeyPair( kp ) {
-        bitcoinjs.payments.p2pkh({ pubkey: kp.publicKey ,  network  }).address;
-    }
-
-    let network;
-
-    if (testmode) {
-        network = bitcoinjs.networks.testnet;
-    } else {
-        network = bitcoinjs.networks.main;
-    }
-
-    window.keyPair = bitcoinjs.ECPair.makeRandom( {network: network} );
-
-    console.log( "Prize redemption key (do not tell to ANYONE or they can claim your prizes!):"+ window.keyPair.toWIF());
-    // You can test WIFs at http://gobittest.appspot.com/PrivateKey or import them into bitcoin-core
-    // with the commmand "importprivkey [key] [name for key in wallet]"
-
-</script>
 
 <!--- GENERATE A BLOCK WITH A COINBASE THAT INCLUDES OUT EXTRANONCE BITS. --->
 
@@ -1216,9 +1243,14 @@
         // We will also get these fields whenever difficulty changes and on the initial message after connecting.
 
         if (b.length>=4+4+32 + 4) {
-            window.nbits = b.readUInt32LE( 4+4+32 );
-            console.log("New nbits="+nbits.toString(16)+" so must find "+ (TOTAL_NIBBLES_IN_HASH - freeNibblesInTarget( nbits2target( window.nbits ).toHexString() ))+" hashes to win.");
-            console.log("target="+nbits2target( window.nbits  ).toHexString());
+
+            if (!forceNbits) {
+                window.nbits = b.readUInt32LE(4 + 4 + 32);
+                console.log("New nbits=" + nbits.toString(16) + " so must find " + (TOTAL_NIBBLES_IN_HASH - freeNibblesInTarget(nbits2target(window.nbits).toHexString())) + " hashes to win.");
+                console.log("target=" + nbits2target(window.nbits).toHexString());
+            } else {
+                console.log("Ignoring nBits update - Forced nBits specified.");
+            }
 
         }
 
