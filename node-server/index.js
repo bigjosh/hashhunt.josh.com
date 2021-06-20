@@ -43,7 +43,9 @@ function startWebsocketServer( websocketPort ) {
 
             if (isBlockValid(message)) {
                 console.log("block looks valid, sumbitting to node...");
-                submitblock(message);
+                submitblock(message , function (s) {
+                    console.log("In cb:"+s);
+                });
                 ws.send('A');       // Send accept reciept back to the client.
             } else {
                 console.log("rejecting block...");
@@ -90,22 +92,20 @@ import { createHmac } from 'crypto';
 
 function isBlockValid(b) {
 
-    // https://nodejs.org/api/crypto.html#crypto_crypto
-    const hash = createHmac('sha256', secret)
-        .update(b)
-        .digest('hex');
-
-    //Make sure they at least put a little effort into it
-    if (hash>=currentTargetHexString) {
-        return false;
-    }
+    // // https://nodejs.org/api/crypto.html#crypto_crypto
+    // const hash = createHmac('sha256', secret)
+    //     .update(b)
+    //     .digest('hex');
+    //
+    // //Make sure they at least put a little effort into it
+    // if (hash>=currentTargetHexString) {
+    //     return false;
+    // }
 
     // Make sure it is one of ours
     if (b.slice(125,24).toString() != "/Play Hashhunt.josh.com/") {
         return false;
     }
-
-
 
     return true;        // (for now)
 }
@@ -167,21 +167,25 @@ function updateLastBlockBufferDelay(b) {
 const child_process = require('child_process');
 
 // Submit a block to the local bitcoind using the cli
+// cb(string) gets called with a human readable string indicating how it turned out.
 
-function submitblock( b ) {
+function submitblock( b , cb ) {
 
     // Run a batch file to submit the block to bitcoin core over RPC
+    // This is slightly scary becuase we are passing something that came in off the network into an exec(),
+    // but I think (hope?) OK because we only send it as a hex string of the data so how back could it be?
     const commandline = blockSubmitCommandTemplate.replace( "${block}" , b.toString("hex") );
     console.log("Submitting block command:"+commandline);
     child_process.exec( commandline ,  function(err, stdout, stderr) {
         if (err) {
             //some err occurred
-            console.error("ERROR:"+err);
+            const cbString ="ERROR:"+err;
         } else {
             // the *entire* stdout and stderr (buffered)
-            console.log(`stdout: ${stdout}`);
-            console.log(`stderr: ${stderr}`);
+            const cbString =`stdout: ${stdout}, stderr: ${stderr}`);
         }
+        console.log("submitBlock callback:"+cbString);
+        cb(cbString);
     });
 
     // TODO: To submit a block via CLI https://medium.com/stackfame/how-to-run-shell-script-file-or-command-using-nodejs-b9f2455cb6b7
