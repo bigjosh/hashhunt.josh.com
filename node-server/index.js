@@ -183,7 +183,7 @@ function submitblock( b , cb ) {
             const cbString ="ERROR:"+err;
         } else {
             // the *entire* stdout and stderr (buffered)
-            const cbString =`stdout: ${stdout}, stderr: ${stderr}`);
+            const cbString =`stdout: ${stdout}, stderr: ${stderr}`;
         }
         console.log("submitBlock callback:"+cbString);
         cb(cbString);
