@@ -198,7 +198,6 @@
 
     window.nowSecs;                     // Time to used for current block. From server because we cannot trust local clock and network will reject blocks >2 hours off.
     window.nbits;                       // nbits for difficulty target from server.
-    window.forceNbits=false;            // You can overrde the nbits frm the websocket server for testing
     window.prevHash;                    // 32 byte buffer with previous block hash. Stored in bincoin LE order.
     window.roundNumber;                 // UINT32
 
@@ -280,14 +279,6 @@
     } else {
         console.log("Using default websocket server.");
         window.webSocketServerURL = window.default_ws_server;
-    }
-
-    const nbits_param = urlParams.get('nbits')
-
-    if (nbits_param) {
-        console.log("Using forced nbits. Prizes not guaranteed.");
-        window.nbits = nbits_param;
-        window.forceNbits = true;
     }
 
 </script>
@@ -784,13 +775,9 @@
         document.writeln("<pre>"+window.keyPair.toWIF()+"</pre>");
 
         if (webSocketServerURL != default_ws_server) {
-            document.writeln("<h3 style='background: darkred; padding=2px;color: white'>NON-STANDARD WEBSOCKET SERVER SPECIFIED - PRIZE NOT GUARANTEED!</h3>");
+            document.writeln("<h3 style='background: darkred; padding=2px;color: white'>SUSPECT SOLUTION! NON-STANDARD WEBSOCKET SERVER TAMPERING!</h3>");
         }
-
-        if (forceNbits) {
-            document.writeln("<h3 style='background: darkred; padding=2px;color: white'>FORCE NBITS SPECIFIED - PRIZE NOT GUARANTEED!</h3>");
-        }
-
+        
         document.writeln("<p>It is very important that you save your claim code someplace very");
         document.writeln("   safe.</p>");
 
@@ -1223,9 +1210,9 @@
         if (b.length==1) {
             // This is a response to a submitted block so we add a message to the bottom of the win page.
             if ( b[0]== ("A".charCodeAt(0)) ) {                      // https://stackoverflow.com/a/94049/3152071
-                addSubmisionStatus("Solution ACCEPTED by server.");
+                addSubmisionStatus("Solution accepted by server.");
             } else {
-                addSubmisionStatus("Solution REJECTED by server.");
+                addSubmisionStatus("Solution rejected by server.");
             }
             return;
         }
@@ -1252,15 +1239,9 @@
         // We will also get these fields whenever difficulty changes and on the initial message after connecting.
 
         if (b.length>=4+4+32 + 4) {
-
-            if (!forceNbits) {
-                window.nbits = b.readUInt32LE(4 + 4 + 32);
-                console.log("New nbits=" + nbits.toString(16) + " so must find " + (TOTAL_NIBBLES_IN_HASH - freeNibblesInTarget(nbits2target(window.nbits).toHexString())) + " hashes to win.");
-                console.log("target=" + nbits2target(window.nbits).toHexString());
-            } else {
-                console.log("Ignoring nBits update - Forced nBits specified.");
-            }
-
+            window.nbits = b.readUInt32LE(4 + 4 + 32);
+            console.log("New nbits=" + nbits.toString(16) + " so must find " + (TOTAL_NIBBLES_IN_HASH - freeNibblesInTarget(nbits2target(window.nbits).toHexString())) + " hashes to win.");
+            console.log("target=" + nbits2target(window.nbits).toHexString());
         }
 
         // We get this only on initial connect. It lets us show the player how far into the current round we are...
