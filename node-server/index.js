@@ -19,6 +19,10 @@ const wss = startWebsocketServer( websocketPort );
 console.log("Starting http server on port "+httpPort+"...");
 const httpServer = startHttpServer(httpPort);
 
+// Remember the target for the current nbits so we can check submitted blocks to make sure they
+// have enough work in them. Updated by updateLastBlockBufferAdjust()
+let currentTargetHexString="";
+
 // Biolerplate from https://www.npmjs.com/package/ws#simple-server
 
 function startWebsocketServer( websocketPort ) {
@@ -52,16 +56,57 @@ function startWebsocketServer( websocketPort ) {
 
 }
 
+// Returns a 256 bit/32 byte buffer of the target in bitcoin LE format
+// Based on https://developer.bitcoin.org/reference/block_chain.html#target-nbits
+// Test here https://dlt-repo.net/bitcoin-target-calculator/
+// I think the string functions end up being more elegant than the typical math-based solutions, don't you?
+
+function nbits2target(nbits) {
+    const significand = nbits & 0x00ffffff;
+    const exponent = nbits >>> (8*3);
+
+    // (all `*2` are becuase calcuations are in bytes, but in string 1 byte = 2 letter places)
+
+    const fixed6SigString =  (significand.toString(16)).padStart( 3*2 , "0");
+    //  a 3 digit (6 byte) hex string with a leading fixed point
+
+    const paddedSigString = ("00").repeat(32) + fixed6SigString + ("00").repeat(32) ;
+    // padded string has a fixed (hexa)decimal point after byte 32
+
+    const expString = paddedSigString.slice( exponent*2, (32+exponent)*2);
+    // Now we move the point to the right exp bytes
+
+    return Buffer.fromHexString( expString );     // Put back in bitcoin LE format
+}
+
 // Checks that a block is valid so we don't waste effort submitting bad blocks to bitcoin-core since
 // it is expensive. Check...
-// length is right
-// nbits is right
 // height is right
 // coinbase has hashhunt data in it
-// hash is below target
+// hash has some work in it (at least more work than it takes us to submit it)
+
+// For SHA256
+import { createHmac } from 'crypto';
 
 function isBlockValid(b) {
-    // TODO: write this
+
+    // https://nodejs.org/api/crypto.html#crypto_crypto
+    const hash = createHmac('sha256', secret)
+        .update(b)
+        .digest('hex');
+
+    //Make sure they at least put a little effort into it
+    if (hash>=currentTargetHexString) {
+        return false;
+    }
+
+    // Make sure it is one of ours
+    if (b.slice(125,24).toString() != "/Play Hashhunt.josh.com/") {
+        return false;
+    }
+
+
+
     return true;        // (for now)
 }
 
@@ -100,6 +145,7 @@ function updateLastBlockBuffer( b , nowSecs,  height  , prevHash ) {
 function updateLastBlockBufferAdjust( b , nowSecs, height , prevHash ,  nbits  ) {
     updateLastBlockBuffer( b , nowSecs , height , prevHash );
     console.log("nbits="+nbits);
+    currentTargetHexString = nbits2target(nbits);   // Remember this so we can check submitted blocks
     b.writeUInt32LE( nbits , 4+4+32 );
     console.log("b:"+b.slice( 0 , 4+4+32 + 4).toString("hex"));
     return b.slice( 0 , 4+4+32 + 4);                    // Return a pre-sized buffer

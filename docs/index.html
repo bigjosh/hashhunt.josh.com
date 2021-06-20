@@ -896,9 +896,9 @@
         let pushBlockheightOps = pushValueScriptOps(blockheight);
         o=b.writeBuffer(pushBlockheightOps,o);
 
-        // Free advertizing on the biggest billboard on Earth!
+        // Free advertising on the biggest billboard on Earth!
         o=b.writeBuffer( Buffer.from("/Play Hashhunt.josh.com/") , o );
-        o=b.writeBuffer( extraNonce , o );         // These nonce bits will hopefuly percolate into a nice merkle hash and then into a nice block hash
+        o=b.writeBuffer( extraNonce , o );         // These nonce bits will hopefully percolate into a nice merkle hash and then into a nice block hash
 
         return b.slice(0,o);            // Trim buffer to actual size
     }
