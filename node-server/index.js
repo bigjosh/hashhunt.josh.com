@@ -3,9 +3,10 @@
 const websocketPort = 80;  // Port to listen for websocket connections from clients
 const httpPort = 81;       // Used to let bitcoind `blocknotify` tell us about new blocks
 
-// Passed to exec to submit a found block using the script in `bitcoin-core-scripts`
-// https://nodejs.org/api/path.html#path_path_join_paths
-const blockSubmitCommandTemplate = require("path").join( "bitcoin-core-scripts" , "submitblock.bat") + " ${block}";
+// Passed to exec to submit a found block. bitcoin-cli must be in PATH.
+// Note that I would have prefered to make this a script, but I could not figure out how to
+// capture the output from a command inside a batch file and then re-emitt it to the calling program.
+const blockSubmitCommandTemplate = "bitcoin-cli submitblock ${block}";
 
 let lastBlockBuffer = Buffer.alloc(256);    // Keep a prefilled buffer around so we can quickly update and send it. Make it way too big here and know about lengths in the code below.
 let lastBlockTimeSecs =0;                   // Time current round started. Updated in update buffer functions.
