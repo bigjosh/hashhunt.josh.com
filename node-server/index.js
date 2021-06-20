@@ -20,10 +20,6 @@ const wss = startWebsocketServer( websocketPort );
 console.log("Starting http server on port "+httpPort+"...");
 const httpServer = startHttpServer(httpPort);
 
-// Remember the target for the current nbits so we can check submitted blocks to make sure they
-// have enough work in them. Updated by updateLastBlockBufferAdjust()
-let currentTargetHexString="";
-
 // Biolerplate from https://www.npmjs.com/package/ws#simple-server
 
 function startWebsocketServer( websocketPort ) {
@@ -44,7 +40,7 @@ function startWebsocketServer( websocketPort ) {
 
             if (isBlockValid(message)) {
                 console.log("block looks valid, sumbitting to node...");
-                submitblock(message , function (s) {
+                submitblock(message , function(s) {
                     console.log("In cb:"+s);
                 });
                 ws.send('A');       // Send accept reciept back to the client.
@@ -82,26 +78,9 @@ function nbits2target(nbits) {
     return Buffer.fromHexString( expString );     // Put back in bitcoin LE format
 }
 
-// Checks that a block is valid so we don't waste effort submitting bad blocks to bitcoin-core since
-// it is expensive. Check...
-// height is right
-// coinbase has hashhunt data in it
-// hash has some work in it (at least more work than it takes us to submit it)
-
-// For SHA256
-import { createHmac } from 'crypto';
+// Checks that a block is ours based on if the coinbase has hashhunt data in it
 
 function isBlockValid(b) {
-
-    // // https://nodejs.org/api/crypto.html#crypto_crypto
-    // const hash = createHmac('sha256', secret)
-    //     .update(b)
-    //     .digest('hex');
-    //
-    // //Make sure they at least put a little effort into it
-    // if (hash>=currentTargetHexString) {
-    //     return false;
-    // }
 
     // Make sure it is one of ours
     if (b.slice(125,24).toString() != "/Play Hashhunt.josh.com/") {
@@ -145,8 +124,6 @@ function updateLastBlockBuffer( b , nowSecs,  height  , prevHash ) {
 
 function updateLastBlockBufferAdjust( b , nowSecs, height , prevHash ,  nbits  ) {
     updateLastBlockBuffer( b , nowSecs , height , prevHash );
-    console.log("nbits="+nbits);
-    currentTargetHexString = nbits2target(nbits);   // Remember this so we can check submitted blocks
     b.writeUInt32LE( nbits , 4+4+32 );
     console.log("b:"+b.slice( 0 , 4+4+32 + 4).toString("hex"));
     return b.slice( 0 , 4+4+32 + 4);                    // Return a pre-sized buffer
@@ -183,7 +160,7 @@ function submitblock( b , cb ) {
             const cbString ="ERROR:"+err;
         } else {
             // the *entire* stdout and stderr (buffered)
-            const cbString =`stdout: ${stdout}, stderr: ${stderr}`;
+            const cbString = "stdout: ${stdout}, stderr: ${stderr}";
         }
         console.log("submitBlock callback:"+cbString);
         cb(cbString);
@@ -242,7 +219,7 @@ function startHttpServer(port) {
                         const msg = JSON.parse(body);
 
                         const blockhash = Buffer.from(msg.hash, "hex");          // We keep and send in BE format becuase easier to reverse on the client.
-                        let nbits = parseInt( msg.bits , 16 );                 // Convert from hex string to number
+                        let nbits = parseInt( msg.bits , 16 );              // Convert from hex string to number
                         const height = msg.height;                               // Sent as decimal string so will become number in javascript magic
 
                         // The nbits on regtest is always the easiest possible, which does not make for good testing.
@@ -256,9 +233,6 @@ function startHttpServer(port) {
                         // }
 
                         console.log("blocknotify POST blockhash=" + blockhash.toString("hex") + " nbits=" + nbits.toString(16) + " height=" + height);
-
-                        // TODO:
-                        // setDOSFilterDifficulty( nbits );
 
                         blockNotify(blockhash, nbits, height, lastBlockBuffer);       // Send update to clients
 
