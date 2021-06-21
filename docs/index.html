@@ -278,7 +278,7 @@
         window.webSocketServerURL = ws_param;
     } else {
         console.log("Using default websocket server.");
-        window.webSocketServerURL = window.default_ws_server;
+        window.webSocketServerURL = default_ws_server;
     }
 
 </script>
@@ -774,7 +774,7 @@
 
         document.writeln("<h2>Your Hash Hunt prize claim code is:</h2>");
 
-        if (webSocketServerURL != default_ws_server) {
+        if (window.webSocketServerURL != default_ws_server) {
             document.writeln("<div style='background: darkred; padding=2px;color: white'>SUSPECT SOLUTION! NON-STANDARD WEBSOCKET SERVER TAMPERING!</div>");
         } else {
             document.writeln("<div>");
@@ -1305,7 +1305,7 @@
     // TODO: Serve static files also https://stackoverflow.com/a/20920463/3152071
 
     // Open connection to server. Sadly this is hard coded becuase I could not figure how a good way to get express and ws running on the server at the same time.
-    ws = new WebSocket( webSocketServerURL );
+    ws = new WebSocket( window.webSocketServerURL );
     ws.binaryType = "arraybuffer";
     deactivatedAlert("Connecting to server")
 
