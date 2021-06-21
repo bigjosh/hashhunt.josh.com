@@ -297,7 +297,7 @@
         const h = Math.floor( elapsedTimeSecs / 3600 );
         const m = Math.floor( (elapsedTimeSecs - (h*3600)) / 60 );
         const s = Math.floor( (elapsedTimeSecs - (h*3600) - (m*60)) );
-        statusElement.innerText = "Current round elapsed time: " + h.toString(10).padStart(2,'0')+":"+m.toString(10).padStart(2,'0')+":"+s.toString(10).padStart(2,'0');
+        statusElement.innerText = "Elapsed time: " + h.toString(10).padStart(2,'0')+":"+m.toString(10).padStart(2,'0')+":"+s.toString(10).padStart(2,'0');
 
     }
 
