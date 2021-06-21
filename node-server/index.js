@@ -66,8 +66,11 @@ function isBlockValid(b) {
 
     // Make sure it is one of ours.
     // The position of the string in the block was found empirically and may need to be updated if anything
-    // in the client block generation code changes.
-    if (b.slice(126,126+22).toString() != "Play Hashhunt.josh.com") {
+    // in the client block generation code changes. Note that to make this work, I had to use a fixed-length 4-byte
+    // push for the height in the coinbase transaction or else this could have moved around depending on which
+    // chain you are on.
+
+    if (b.slice(129,129+22).toString() != "Play Hashhunt.josh.com") {
         console.log("mismatch block tag:"+b.slice(125,24).toString());
         return false;
     }
