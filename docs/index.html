@@ -138,6 +138,17 @@
         transform: translate(-50%, -50%);
     }
 
+    /* https://allthingssmitty.com/2020/05/11/css-fix-for-100vh-in-mobile-webkit/ */
+    body {
+        min-height: 100vh;
+        /* mobile viewport bug fix */
+        min-height: -webkit-fill-available;
+    }
+
+    html {
+        height: -webkit-fill-available;
+    }
+
 </style>
 
 <!-- SHOW A POPUP WITH REDIRECT LINK IF WE LOADED VIA HTTPS --->
@@ -147,7 +158,7 @@
     if (location.protocol == 'https:') {
         document.writeln("<div class='popup'>");
         document.writeln("  <div class='centered' style='background: red; padding:20px;'>");
-        document.writeln("   <h1>Sorry, Hash Hunt only works over http.</h1>");
+        document.writeln("   <h1>Hash Hunt only works over http.</h1>");
         document.writeln("   Click <a href='http://hashhunt.josh.com'>here</a> to play.");
         document.writeln("  </div>");
         document.writeln("</div>");
@@ -309,12 +320,6 @@
 <script>
     const queryString = window.location.search;
     const urlParams = new URLSearchParams(queryString);
-
-    // Becuase of misguided Chrome ws restrictions, we can only run over http
-    if (location.protocol == 'https:') {
-        document.writeln("<h1>Sorry, Hash Hunt only runs over http.</h1>");
-        document.writeln("Click <a href='http://hashhunt.josh.com'>here</a> to play.");
-    }
 
     const ws_param = urlParams.get('ws')
 
