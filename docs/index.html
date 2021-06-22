@@ -116,6 +116,33 @@
 
 </style>
 
+<!--- First make sure we are not https, and offer to redirect if we are -->
+
+<script>
+    // Becuase of misguided Chrome ws restrictions, we can only run over http
+    if (location.protocol == 'https:') {
+        document.writeln("<h1>Sorry, Hash Hunt only works over http.</h1>");
+        document.writeln("Click <a href='http://hashhunt.josh.com'>here</a> to play.");
+    }
+</script>
+
+<!--- GET OUR OPTIONAL WEB SOCKET SERVER FROM URL --->
+
+<script>
+    const queryString = window.location.search;
+    const urlParams = new URLSearchParams(queryString);
+    const ws_param = urlParams.get('ws')
+
+    if (ws_param) {
+        console.log("Using alternate websocket server based on URL `ws` parameter. Prizes not guaranteed.");
+        window.webSocketServerURL = ws_param;
+    } else {
+        console.log("Using default websocket server.");
+        window.webSocketServerURL = default_ws_server;
+    }
+
+</script>
+
 <!---
 
      UI OVERVIEW
@@ -812,6 +839,8 @@
         document.writeln("<h2>Live Submision Updates Here</h2>");
 
         document.writeln("<ul id='statusupdatelist' style='list-style-type:none;'></ul>");
+
+        document.close();
 
         addSubmisionStatus("Submitting your solution to the network...");
 
