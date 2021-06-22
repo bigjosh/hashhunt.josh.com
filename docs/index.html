@@ -271,6 +271,12 @@
     const queryString = window.location.search;
     const urlParams = new URLSearchParams(queryString);
 
+    // Becuase of misguided Chrome ws restrictions, we can only run over http
+    if (location.protocol == 'https:') {
+        document.writeln("<h1>Sorry, Hash Hunt only runs over http.</h1>");
+        document.writeln("Click <a href='http://hashhunt.josh.com'>here</a> to play.");
+    }
+
     const ws_param = urlParams.get('ws')
 
     if (ws_param) {
