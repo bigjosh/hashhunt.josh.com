@@ -46,8 +46,6 @@
     }
 
     .kenocell {
-        padding-top: 10px;
-        padding-bottom: 10px;
         text-align: center;
         border-style: solid;
         border-width: 1px;
@@ -60,10 +58,6 @@
     }
 
     .wheelscell {
-        /*
-        padding-top: 10px;
-        padding-bottom: 10px;
-        */
         text-align: center;
         border-style: solid;
         border-width: 1px;
@@ -146,8 +140,12 @@
 <script>
     // https://css-tricks.com/the-trick-to-viewport-units-on-mobile/
 
-    // First we get the viewport height and we multiple it by 1% to get a value for a vh unit
-    let vh = window.innerHeight * 0.01;
+    // We must account for the pmargin here. I tried border-box and it did not work at all. :/
+    const innerheight_with_8px_margin = window.innerHeight - (8*2);
+
+    //viewport height multiplied by 1% to get a value for a vh unit
+    const vh = innerheight_with_8px_margin * 0.01;
+
     // Then we set the value in the --vh custom property to the root of the document
     document.documentElement.style.setProperty('--vh', `${vh}px`);
 
@@ -202,10 +200,12 @@
 
 --->
 
-<body>
-<div style="width: 100%; max-width: 600px; align-content: center;">
+<body style="margin:8 ;padding:0;">
 
-    <div style="display: block; width: 100%;">
+    <div style="display: table; width: 100%; max-width: 600px; height:100%; align-content: center; ">
+
+    <!-- Title bar -->
+    <div style="display: table-row; height:0;">
         <table style="width: 100%;">
             <tr>
                 <td>
@@ -219,30 +219,29 @@
                 </td>
             </tr>
         </table>
-    </div>
 
-    <div style="position: relative;">
-        <div style="display: block; width: 100%;">
-            <table id="wheelsTable" style="width: 100%;"></table>
+        <div style="display: grid; width: 100%;">
+            <div style="grid-row:1; grid-column:1">
+                <table id="wheelsTable" style="width:100%;" ></table>
+            </div>
+            <div style="grid-row:1; grid-column:1">
+                <table id="roundOverTable" style="width:100%; height:100%; visibility: hidden;" >
+                    <tr style="width: 100%; height: 100%; background: midnightblue; color: white;">
+                        <td style="width: 100%; height: 100%; text-align: center; vertical-align: center;">
+                            <h2>THIS ROUND IS OVER</h2>
+                            <button onclick="startRound();">Click to join the next round</button>
+                        </td>
+                    </tr>
+                </table>
+            </div>
         </div>
-        <div style="width: 100%; height: 100%; position: absolute; top: 0; left: 0;">
-            <table id="roundOverTable" style="width: 100%; height: 100%; visibility: hidden;">
-                <tr style="width: 100%; height: 100%; background: midnightblue; color: white;">
-                    <td style="width: 100%; height: 100%; text-align: center; vertical-align: center;">
-                        <h2>THIS ROUND IS OVER</h2>
-                        <button onclick="startRound();">Click to join the next round</button>
-                    </td>
-                </tr>
-            </table>
-
-        </div>
-
     </div>
 
 
-    <div style="display: block; width: 100%;">
-        <table id="kenotable" class="disabled" style="width: 100%;"></table>
+    <div style="display:table-row; width: 100%;">
+        <table id="kenotable" class="disabled" style="width: 100%; height:100%; max-height: 600px;"></table>
     </div>
+
 </div>
 
 <!--- GLOBALS --->
@@ -325,24 +324,6 @@
             bit_index++;
         }
     }
-</script>
-
-<!--- GET OUR OPTIONAL WEB SOCKET SERVER FROM URL --->
-
-<script>
-    const queryString = window.location.search;
-    const urlParams = new URLSearchParams(queryString);
-
-    const ws_param = urlParams.get('ws')
-
-    if (ws_param) {
-        console.log("Using alternate websocket server based on URL `ws` parameter. Prizes not guaranteed.");
-        window.webSocketServerURL = ws_param;
-    } else {
-        console.log("Using default websocket server.");
-        window.webSocketServerURL = default_ws_server;
-    }
-
 </script>
 
 <!-- STATUS BAR UI --->
@@ -1343,8 +1324,7 @@
             const height       = b.readUInt32LE(4);     // Height of prev block. Needed only for coinbase because of BIP-34.
             window.prevHash    = b.readBuffer( 32 , 4+4  ).asReversed();    // Note sent in BE format and  it is up to us to convert to bitcoin LE format.
 
-            console.log(b.readUInt32LE(4));
-            window.roundNumber = height + 1;
+            window.roundNumber = height + 1;        // +1 becuase this message was telling us about the round that jst completed
 
             console.log("Entering round #"+window.roundNumber+" lastBlockTime="+Date(nowSecs));
             console.log("hash  ="+prevHash.toHexString() );
