@@ -102,6 +102,7 @@
     /* https://www.w3schools.com/css/css3_buttons.asp */
     button {
         border: none;
+        color: white;       /* Needed by Safari */
         padding: 15px 32px;
         text-align: center;
         text-decoration: none;
@@ -351,13 +352,19 @@
     function startRound() {
         resetKenoTable();
         roundOverTable.style.visibility="hidden";      // Hide the "new round" popup alert
-        kenotable.classList.remove("disabled");
+
+        // Apparently Safari needs us to apply this style to every child rather than just the container. :/
+        kenocells.forEach( function (value,index,array ) { value.classList.remove("disabled"); });
+
         updateStatus();
         statusTimer = setInterval( updateStatus, 1000);          // Update elapsed time counter once per second
     }
 
     function deactivatePlay() {
-        kenotable.classList.add("disabled");
+
+        // Apparently Safari needs us to apply this style to every child rather than just the container. :/
+        kenocells.forEach( function (value,index,array ) { value.classList.add("disabled"); });
+
         clearInterval( statusTimer );       // Cancel update timer
     }
 
