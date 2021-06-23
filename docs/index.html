@@ -61,7 +61,7 @@
         text-align: center;
         border-style: solid;
         border-width: 1px;
-        cursor: pointer;
+        cursor: default;
         font-weight: bold;
         font-size: 1.5em;
         height: 1.5em;
@@ -102,7 +102,8 @@
     /* https://www.w3schools.com/css/css3_buttons.asp */
     button {
         border: none;
-        color: white;       /* Needed by Safari */
+        color: black;
+        background: white;       /* Needed by Safari */
         padding: 15px 32px;
         text-align: center;
         text-decoration: none;
@@ -240,7 +241,7 @@
 
 
     <div style="display:table-row; width: 100%;">
-        <table id="kenotable" class="disabled" style="width: 100%; height:100%; max-height: 600px;"></table>
+        <table id="kenotable" style="width: 100%; height:100%; max-height: 600px;"></table>
     </div>
 
 </div>
@@ -321,6 +322,8 @@
             cell.onmouseenter = function (e) {
                 if (e.buttons & 0x01) kenoTableClickHandler(cell)
             };
+
+            cell.classList.add("disabled");     // Start off with cells disabled, enabled when we connect to server.
             kenocells[bit_index]=cell;
             bit_index++;
         }
