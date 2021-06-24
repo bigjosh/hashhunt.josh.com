@@ -20,10 +20,15 @@ const wss = startWebsocketServer( websocketPort );
 console.log("Starting http server on port "+httpPort+"...");
 const httpServer = startHttpServer(httpPort);
 
+// Remote address+port of ws connection as string
+function wsRemoteStr( ws ) {
+    return ws._socket.remoteAddress +":"+  ws._socket.remotePort;
+}
+
 function wslog( ws , str , extra ) {
     // Date format https://stackoverflow.com/a/13219636/3152071
     // Remote socket ip:port  https://stackoverflow.com/questions/14822708/how-to-get-client-ip-address-with-websocket-websockets-ws-library-in-node-js
-    console.log( new Date().toISOString() , ws._socket.remoteAddress +":"+  ws._socket.remotePort , str ,  ( extra ? "["+extra+"]" : "" ) );
+    console.log( new Date().toISOString() , wsRemoteStr(ws) , str ,  ( extra ? "["+extra+"]" : "" ) );
 }
 
 // Boilerplate from https://www.npmjs.com/package/ws#simple-server
@@ -209,6 +214,7 @@ function startHttpServer(port) {
 
                 // No param sanity checks here. We should be the only ones able to submit, so want to crash if any problems.
                 blockNotify(blockhash, nbits, height, lastBlockBuffer);       // Send update to clients
+
             } else {
 
                 // For POST we will parse bitcoin-core JSON output for GETBLOCK command
@@ -251,7 +257,28 @@ function startHttpServer(port) {
                     res.end();
                 });
             }
+        } else if (pathname.startsWith("/status")) {
+
+            // Return a little status page so we can see who is connected.
+
+            res.writeHead(200, {'Content-Type': 'text/html'});
+
+            let s="<html><body><table border='1'>";
+
+            let count=1;
+
+            wss.clients.forEach(function (ws) {
+                s+= "<tr><td style='text-align:right'>"+ (count++) + "</td><td>" + wsRemoteStr(ws) + "</td></tr>";
+            });
+
+            s+="</table></body></html>";
+
+            res.write(s);
+
+            res.end('###');
+
         }
+
 
     });
 
