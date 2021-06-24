@@ -20,7 +20,13 @@ const wss = startWebsocketServer( websocketPort );
 console.log("Starting http server on port "+httpPort+"...");
 const httpServer = startHttpServer(httpPort);
 
-// Biolerplate from https://www.npmjs.com/package/ws#simple-server
+function wslog( ws , str , extra ) {
+    // Date format https://stackoverflow.com/a/13219636/3152071
+    // Remote socket ip:port  https://stackoverflow.com/questions/14822708/how-to-get-client-ip-address-with-websocket-websockets-ws-library-in-node-js
+    console.log( new Date().toISOString() , ws._socket.remoteAddress +":"+  ws._socket.remotePort , str ,  ( extra ? "["+extra+"]" : "" ) );
+}
+
+// Boilerplate from https://www.npmjs.com/package/ws#simple-server
 
 function startWebsocketServer( websocketPort ) {
 
@@ -29,24 +35,36 @@ function startWebsocketServer( websocketPort ) {
     // New websocket connection - send startup info: time of last block, prev hash, target
     wss.on('connection', function connection(ws,req) {
 
-        // https://stackoverflow.com/questions/14822708/how-to-get-client-ip-address-with-websocket-websockets-ws-library-in-node-js
-        console.log( "New ws connection from: " + ws._socket.remoteAddress)
+        // https://developer.mozilla.org/en-US/docs/Web/API/WebSocket/onerror#example
+        ws.on( "error" , function (error) {
+            wslog(ws, "ERROR", error.toString() );
+        });
+
+        ws.on( "close" , function (code,reason) {
+            wslog(ws,"CLOSE" , reason );
+        } );
+
+        wslog( ws , "OPEN " );
 
         starupNewWsConnection( ws , lastBlockBuffer );
 
+        // Note that we should send info about a new block about every 10 minutes.
+        // If that send times out, the socket closes so we don't bother doing pings.
+
         ws.on('message', function incoming(message) {
-            // For now the only thing we recieve from the client is a mined block, which we turn around and submit.
-            console.log('RECIEVED BLOCK!:' + message.toString("hex") );
+            // For now the only thing we receive from the client is a mined block, which we turn around and submit.
+
+            wslog( ws , "BLOCK" , message.toString("hex")  );
 
             if (isBlockValid(message)) {
-                console.log("block looks valid, sumbitting to node...");
+                console.log("block looks valid, submitting to node...");
                 submitblock(message , function(s) {
                     ws.send( s.padEnd( 20 , " ").substr( 0 , 20) );     // Len=20 indicates the final result string from submitblock.
                 });
-                ws.send('A');       // Send accept reciept back to the client.
+                ws.send('A');       // Send accept receipt back to the client.
             } else {
                 console.log("rejecting block...");
-                ws.send('J');       // Send reject reciept back to the client. (Anything but A is reject for now)
+                ws.send('J');       // Send reject receipt back to the client. (Anything but A is reject for now)
             }
         });
     });
@@ -252,8 +270,6 @@ function starupNewWsConnection( ws , lastBlockBuffer ) {
     // the player aprox how long into the current round they are.
 
     const msg = updateLastBlockBufferDelay( lastBlockBuffer );
-
-    console.log("sending [" + msg.length +"]:"+msg.toString("hex"));
     ws.send( msg );
 
 }
