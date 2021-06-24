@@ -86,8 +86,27 @@
         animation-direction: alternate;
     }
 
+    /* We never want that extra padding that seems to cmoe with table https://stackoverflow.com/a/25915361/3152071 */
+    /*table tr td {*/
+    /*}*/
+
     table {
         table-layout: fixed;
+        border-spacing: 0px;
+        border-collapse: collapse;
+    }
+
+    tr {
+        table-layout: fixed;
+        border-spacing: 0px;
+        border-collapse: collapse;
+    }
+
+    td {
+        table-layout: fixed;
+        border-spacing: 0px;
+        border-collapse: collapse;
+        padding: 0px;
     }
 
     /* https://stackoverflow.com/a/27622231/3152071 */
@@ -204,48 +223,61 @@
 
 <body style="margin:8 ;padding:0;">
 
-<div id="full_page_table" style="display: table; width: 100%; max-width: 600px; height:100%; align-content: center; table-layout: fixed; ">
+<table id="full_page_table" style="width: 100%; max-width: 600px; height:100%; max-height: 800px; margin: 0 auto;">
 
-    <div id="top_row" style="display: table-row; height:1px;">
-        <table id="title_bar" style="width: 100%;">
-            <tr>
-                <td>
-                    <table style="display: inline;">
-                        <tr><td><div style="box-sizing:border-box;"><span style="font-family: 'Girassol', serif ;font-size: large; padding: 5px; background: black; color:white; display:inline-block;">HASH HUNT</span></div></td></tr>
-                    </table>
-                </td>
-                <td style="text-align: right; padding-right: 10px;">
-                    <div id="status">Loading</div>
-                    <a href="info.html">more info</a>
-                </td>
-            </tr>
-        </table>
-    </div>
+    <tr id="title_bar" style="width:100%; height: 1px;">
+        <td>
+            <table id="title_bar" style="width: 100%;">
+                <tr>
+                    <td>
+                        <table style="display: inline;">
+                            <tr><td><div style="box-sizing:border-box;"><span style="font-family: 'Girassol', serif ;font-size: large; padding: 5px; background: black; color:white; display:inline-block;">HASH HUNT</span></div></td></tr>
+                        </table>
+                    </td>
+                    <td style="text-align: right; padding-right: 10px;">
+                        <div id="status">Loading</div>
+                        <a href="info.html">more info</a>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
 
-    <div id="middle_row" style="display: table-row; height: 1px;">
-        <div id="wheels_section" style="display: grid; width: 100%; height:100%">
-            <div style="grid-row:1; grid-column:1; height: 100%">
-                <table id="wheelsTable" style="width:100%; height: 100%" ></table>
-            </div>
-            <div style="grid-row:1; grid-column:1">
-                <table id="roundOverTable" style="width:100%; height:100%; visibility: hidden;" >
-                    <tr style="width: 100%; height: 100%; background: midnightblue; color: white;">
-                        <td style="width: 100%; height: 100%; text-align: center; vertical-align: center;">
-                            <h2>THIS ROUND IS OVER</h2>
-                            <button onclick="startRound();">Click to join the next round</button>
-                        </td>
-                    </tr>
-                </table>
-            </div>
-        </div>
-    </div>
+    <tr id="grids" >
+        <td>
+            <table id="grids_table" style="width:100%; height: 100%;">
+                <tr style="height: 20%;">
+                    <td>
+                        <div id="wheelsAndRoundOver" style="display: grid; width: 100%; height:100%">
+                            <div style="grid-row:1; grid-column:1; width: 100%; height: 100%;">
+                                <table id="wheelsTable" style="width:100%; height: 100%" ></table>
+                            </div>
+                            <div style="grid-row:1; grid-column:1">
+                                <table id="roundOverTable" style="width:100%; height:100%; visibility: hidden;" >
+                                    <tr style="width: 100%; height: 100%; background: midnightblue; color: white;">
+                                        <td style="width: 100%; height: 100%; text-align: center; vertical-align: center;">
+                                            <h2>THIS ROUND IS OVER</h2>
+                                            <button onclick="startRound();">Click to join the next round</button>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                <tr style="height: 1%;"><td></td></tr>
 
+                <tr style="height: 79%;">
+                    <td>
+                        <table id="kenotable" style="width: 100%; height:100%;"></table>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
 
-    <div id="bottom_row" style="display:table-row; width: 100%; height: auto;">
-        <table id="kenotable" style="width: 100%; height:100%; max-height: 600px;"></table>
-    </div>
+</table>
 
-</div>
 
 <!--- GLOBALS --->
 
