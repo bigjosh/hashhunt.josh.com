@@ -26,7 +26,11 @@ Node.js websocket server. Responsible for...
 * sending notifications to all clients whenever a new best block is mined
 * accepting mined blocks from clients and submitting them to the network
 
-Note that the server does check incoming mined blocks to make sure that they come from hash hunt, are the correct difficulty, and have a valid hash.
+The server listens on port 81 for (1) `/blocknotify` as either a `GET` or `PUT` with info on a new
+block (the`PUT` takes the JSON that `bitcoin-core getblock` outputs), or (2) `/status` which shows a 
+list of currently connected websocket clients. 
+
+Note that the server does check incoming mined blocks to make sure that they come from hash hunt before submitting them to `bitcoin-core`.
 
 ### Connections to bitcoin-core
 [here](node-server/bitcoin-core-scripts)
