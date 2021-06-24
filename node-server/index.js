@@ -40,6 +40,8 @@ function startWebsocketServer( websocketPort ) {
     // New websocket connection - send startup info: time of last block, prev hash, target
     wss.on('connection', function connection(ws,req) {
 
+        ws.intervalTimer = setInterval( ()=> ws.send("P") , 15000 );     // Send a ping message every 15 seconds so client knows we are here.
+
         // https://developer.mozilla.org/en-US/docs/Web/API/WebSocket/onerror#example
         ws.on( "error" , function (error) {
             wslog(ws, "ERROR", error.toString() );
@@ -47,6 +49,7 @@ function startWebsocketServer( websocketPort ) {
 
         ws.on( "close" , function (code,reason) {
             wslog(ws,"CLOSE" , reason );
+            clearInterval( ws.intervalTimer );      // Cancel the ping sender
         } );
 
         wslog( ws , "OPEN " );
@@ -72,6 +75,8 @@ function startWebsocketServer( websocketPort ) {
                 ws.send('J');       // Send reject receipt back to the client. (Anything but A is reject for now)
             }
         });
+
+
     });
 
     return wss;

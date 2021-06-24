@@ -153,7 +153,6 @@
     document.documentElement.style.setProperty('--vh', `${vh}px`);
 
 </script>
-
 <style>
 
     body {
@@ -207,7 +206,7 @@
 
 <div id="full_page_table" style="display: table; width: 100%; max-width: 600px; height:100%; align-content: center; table-layout: fixed; ">
 
-    <div id="top_row" style="display: table-row; height:5%;">
+    <div id="top_row" style="display: table-row; height:1px;">
         <table id="title_bar" style="width: 100%;">
             <tr>
                 <td>
@@ -223,7 +222,7 @@
         </table>
     </div>
 
-    <div id="middle_row" style="display: table-row; height: 20%;">
+    <div id="middle_row" style="display: table-row; height: 1px;">
         <div id="wheels_section" style="display: grid; width: 100%; height:100%">
             <div style="grid-row:1; grid-column:1; height: 100%">
                 <table id="wheelsTable" style="width:100%; height: 100%" ></table>
@@ -800,7 +799,7 @@
         } else {
             console.log("target:"+targetString);
             console.log("hash  :"+blockHeaderHashString);
-            console.log("Sorry, too big. Please try again. ")
+            console.log("Sorry, too high. Please try again. ")
         }
 
     }
@@ -1294,6 +1293,33 @@
 
 <script>
 
+    // The server only sends a new block on average every 10 minutes, and nothing between so would will never
+    // know that we lost connection unless we try to submit a block back to the server. To make sure this doesn't
+    // happen, the server sends a `ping` every 15 seconds. If the connection is broken then we will timeout and close
+    // the connection, which will alert the user.
+
+    const pingTimeoutMs = 30000;       // We time out if wwe do not see a ping after this long
+
+    let pingTimer;                  // Timer extended each time we get a pin
+
+    function pingTimeout() {
+        // If we have not seen a ping in a while then we are disconnected frm the server so terminate the connection
+        // This will cuase the onclose to happen whch will alert the user.
+        console.log("Ping timeout. Closing connection.")
+        window.ws.close();
+    }
+
+    function setPingTimer() {
+        pingTimer=setTimeout(pingTimeout,pingTimeoutMs);
+    }
+
+    function resetPing() {            // extend timeout
+        // TODO: Some user feedback?
+        clearTimeout(pingTimer);    // Clear the existing timer
+        setPingTimer();             // Start a new one
+
+    }
+
     // Process a message from the server that updates our prevHash [, target [, time since last block ]]
     // We will get a new prevHash anytime a new block in mined on the network
     // We will get a new target along with the prevHash at startup and every 2016th block when difficulty is adjusted
@@ -1303,15 +1329,22 @@
 
     function processWebsocketData(b) {
 
+        // Any data recieved tells us that the connection is still alive.
+        resetPing();
+
         // Len=1 for block accepted or rejected by server.
 
         if (b.length==1) {
-            // This is a response to a submitted block so we add a message to the bottom of the win page.
-            if ( b[0]== ("A".charCodeAt(0)) ) {                      // https://stackoverflow.com/a/94049/3152071
-                addSubmisionStatus("Solution accepted by server.");
-            } else {
-                addSubmisionStatus("Solution rejected by server.");
+            const code = String.fromCharCode( b[0] );
+
+            switch (code) {
+
+                case 'A': addSubmisionStatus("Solution accepted by server."); break;
+                case 'J': addSubmisionStatus("Solution rejected by server."); break;
+                case 'P': console.log("Got ping from server."); break;
+
             }
+
             return;
         }
 
@@ -1388,7 +1421,11 @@
     ws.onopen = () => {
         console.log('Websocket: Connection opened!');
         deactivatedAlert("Conected to server, waiting for data")
+
+        setPingTimer();
+
     }
+
     ws.onmessage = ({ data }) => {
         const b = Buffer.from( data );
         console.log('Websocket: received ['+ b.length +']:'+b.toString("hex"));
