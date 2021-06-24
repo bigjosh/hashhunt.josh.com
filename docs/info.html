@@ -36,9 +36,8 @@
 
 <h1>FAQ</h1>
 <p><b>Q: How do I get my prize if I win?</b><br>
-    A: If you solve the puzzle, you will automatically be redirected to a webpage that will display a prize redemption code
-    that you will use to claim your prize. This redemption code is in standard WIF (Bitcoin Wallet Import Format) and so can be easily
-    imported into any bitcoin wallet system you choose to use.
+    A: If you solve the puzzle, you will automatically be redirected to a webpage that will display your prize redemption code.
+    This code is in standard WIF (Bitcoin Wallet Import Format) and so can be easily imported into any bitcoin wallet system you choose to use.
 </p>
 
 <p><B>Q: Is there any cost to play?</b><br>
@@ -47,13 +46,11 @@
 
 <p><B>Q: How long does each round last?</b><br>
     A: Each round lasts until a puzzle solution is found. This can take a few seconds, or many minutes. You will get a notification
-    when the current round ends and will automatically get a new puzzle to solve for the next round.
+    when the current round ends and will automatically get a new puzzle when the next round begins.
 </p>
 
-
-<p><B>Q: What are "FREE" hashes?</b><br>
-    A: "FREE" hashes are added from time to time to make the puzzles easier to solve and quicken the pace of the rounds. If you see
-    a "FREE" hash on a wheel, then you dop not need to solve that wheel to win the puzzle.
+<p><B>Q: What is the counter in the upper right corner?</b><br>
+    A: This shows how long the current round has been running for.
 </p>
 
 <p><b>Q: Are there any restrictions on how winnings can be used?</b><br>
@@ -64,13 +61,6 @@
     A: No. Hash Hunt only uses a small amount of data when (1) when you load the page, (2) when a new round starts, (3) when
     you submit a winning pattern to the Hash Hunt server. Playing Hash Hunt for several hours uses less data than loading the
     New York Times homepage once - and is far more productive.
-</p>
-
-<p><b>Q: Is there a time limit to claim my prize?</b><br>
-    A: No. You can take as long as you want to import your winnings into your wallet. The only ways you can forfeit your winnings
-    are if (1) you lose your redemption code, or (2) you share your redemption code with someone and they use it to claim your prize
-    before you do. It is strongly recommend that you immediately record your redemption code in a safe place and do not share
-    it with anyone.
 </p>
 
 <p><b>Q: Is there a limit to how often I can win a prize?</b><br>
@@ -85,24 +75,11 @@
     A: Possibly coming soon, but for now Hash Hunt only pays jackpots.
 </p>
 
-<p><b>Q: It says that I solved the puzzle, but not all of the wheels are hashes. Is this a bug?</b><br>
-    A: There are rare cases when you can come very close to getting all of the hashes and the system will
-    give you the benefit of the doubt and consider the puzzle solved even though there still is one wheel that
-    is not a hash. These are real wins and you will receive the prize (assuming you are the first in that round).
-</p>
-
 <p><b>Q: I solved the puzzle but now it turns out that I am not the winner and do not get a prize?</b><br>
     A: To receive a prize, you must be the *first* to submit a solution in a given round. Rarely, two solutions will be
     found at almost the same time (usually seconds apart) and it can take up to an hour to determine which is the true winner.
     When you solve a puzzle, you will automatically be taken to a link where you can check the status of the round to see
     if your solution was received by the network first.
-</p>
-
-<p><b>Q: Can I play Hash Hunt offline (like on an airplane or in a subway)?</b><br>
-    A: You can play anywhere, but to win a prize you must be the first to submit your solution to the network- which
-    requires a network connection. Additionally you need a network connection to find out when a new round has started so you
-    do not waste time solving an old puzzle. So while it is possible to practice offline, you will be very sad if you accidentally
-    solve the puzzle but can not claim the prize because you can not submit your solution!
 </p>
 
 <p><b>Q: How many tries do I get to find the correct pattern?</b><br>
@@ -114,24 +91,24 @@
 </p>
 
 <p><b>Q: I got all hashes to come up on the wheels, but then got the message "Solution rejected by server". What gives?</b><br>
-    A: You tried to cheat and it did not work. The server checks to make sure that the selected numbers actually correspond to the
-    values on the wheels before validating a win, so the only person you are cheating is yourself.
+    A: You tried to cheat and it did not work. The network checks to make sure that the submitted numbers are actually a solution
+    to the puzzle before validating a win, so the only person you are cheating is yourself.
 </p>
 
 <p><b>Q: I am a genius and I will write a little script to just try every combination of numbers until I win.</b><br>
     A: Good luck, but maybe do the math first. It is extremely unlikely that your script will be able to find a solution before the
-    end of the round by blindly trying combinations. If you lost your keys [sic], would you start blindly checking
+    end of the round by blindly trying number combinations. If you lost your keys [sic], would you start blindly checking
     each and every cubic inch of the universe until you found them? Where would you start? The center, I assume?
 </p>
 
-<p><b>Q: Why is the jackpot only 1 BTC?</b><br>
-    A: If you run the math you will find that increasing the payout does not meaningfully increase the expected value of the prize
-    in either the short or long term.
+<p><B>Q: What are "FREE" hashes?</b><br>
+    A: "FREE" hashes are added from time to time to make the puzzles easier to solve and quicken the pace of the rounds. If you see
+    a "FREE" hash on a wheel, then you dop not need to solve that wheel to win the puzzle.
 </p>
 
 <p><b>Q: Why does Hash Hunt only run over http and not https?</b><br>
     A: Because of <a href="https://twitter.com/bigjoshlevine/status/1407186138092257289">misguided restrictions</a> promulgated by google,
-    under the banner of security. If you are worried about someone tampering with your Hash Hunt connection to try and steal your prize, then don't.
+    under the banner of security. If you are worried about someone tampering with your Hash Hunt connection to trying and steal your prize, then don't.
     You'll just have to trust me that if someone was able to do this then they would never do this.
 </p>
 
@@ -146,6 +123,20 @@
 </p>
 
 <p style="text-align: center">###</p>
+
+<!--- KEEP TRACK OF USAGE --->
+
+<script type="text/javascript">
+    // So I can know how many websocket servers I need to add and where to put them to keep up.
+    var sc_project=12555529;
+    var sc_invisible=1;
+    var sc_security="928207ec";
+    var sc_remove_link=1;
+</script>
+<script type="text/javascript"
+        src="https://www.statcounter.com/counter/counter.js"
+        async>
+</script>
 
 </body>
 </html>

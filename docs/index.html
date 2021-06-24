@@ -7,7 +7,7 @@
     I am so glad you are here. It was not without great personal discomfort that I crafted Hash Hunt
     using only the most primitive and brutal tools available: Pure Javascript, CSS, and HTML.
 
-    Why? I did it for you. So that you, gentle reader, could directly and independently verify that all
+    Why? I did it for you, gentle reader. So that you could directly and independently verify that all
     Hash Hunt prize claims are absolutely and factually true. Code cannot lie, and so here is- naked and
     unminified for your inspection.
 
@@ -64,7 +64,8 @@
         cursor: default;
         font-weight: bold;
         font-size: 1.5em;
-        height: 1.5em;
+        /*height: 1em;*/
+        /*padding: 0.25em;*/
     }
 
     @keyframes hash_cell_animation {
@@ -204,11 +205,10 @@
 
 <body style="margin:8 ;padding:0;">
 
-    <div style="display: table; width: 100%; max-width: 600px; height:100%; align-content: center; ">
+<div id="full_page_table" style="display: table; width: 100%; max-width: 600px; height:100%; align-content: center; table-layout: fixed; ">
 
-    <!-- Title bar -->
-    <div style="display: table-row; height:0;">
-        <table style="width: 100%;">
+    <div id="top_row" style="display: table-row; height:5%;">
+        <table id="title_bar" style="width: 100%;">
             <tr>
                 <td>
                     <table style="display: inline;">
@@ -221,10 +221,12 @@
                 </td>
             </tr>
         </table>
+    </div>
 
-        <div style="display: grid; width: 100%;">
-            <div style="grid-row:1; grid-column:1">
-                <table id="wheelsTable" style="width:100%;" ></table>
+    <div id="middle_row" style="display: table-row; height: 20%;">
+        <div id="wheels_section" style="display: grid; width: 100%; height:100%">
+            <div style="grid-row:1; grid-column:1; height: 100%">
+                <table id="wheelsTable" style="width:100%; height: 100%" ></table>
             </div>
             <div style="grid-row:1; grid-column:1">
                 <table id="roundOverTable" style="width:100%; height:100%; visibility: hidden;" >
@@ -240,7 +242,7 @@
     </div>
 
 
-    <div style="display:table-row; width: 100%;">
+    <div id="bottom_row" style="display:table-row; width: 100%; height: auto;">
         <table id="kenotable" style="width: 100%; height:100%; max-height: 600px;"></table>
     </div>
 
@@ -344,7 +346,7 @@
         const h = Math.floor( elapsedTimeSecs / 3600 );
         const m = Math.floor( (elapsedTimeSecs - (h*3600)) / 60 );
         const s = Math.floor( (elapsedTimeSecs - (h*3600) - (m*60)) );
-        statusElement.innerText = "Elapsed time: " + h.toString(10).padStart(2,'0')+":"+m.toString(10).padStart(2,'0')+":"+s.toString(10).padStart(2,'0');
+        statusElement.innerText =  h.toString(10).padStart(2,'0')+":"+m.toString(10).padStart(2,'0')+":"+s.toString(10).padStart(2,'0') + " in round";
 
     }
 
@@ -367,6 +369,10 @@
 
         // Apparently Safari needs us to apply this style to every child rather than just the container. :/
         kenocells.forEach( function (value,index,array ) { value.classList.add("disabled"); });
+
+        // Just in case the user is sitting at a "start next round" alert, this hides it and makes it so they can not jump into next round.
+        roundOverTable.style.visibility="hidden";      // Hide the "new round" popup alert
+
 
         clearInterval( statusTimer );       // Cancel update timer
     }
