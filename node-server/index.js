@@ -5,8 +5,8 @@ const httpPort = 81;       // Used to let bitcoind `blocknotify` tell us about n
 
 // Passed to exec to submit a found block. bitcoin-cli must be in PATH.
 // Note that I would have prefered to make this a script, but I could not figure out how to
-// capture the output from a command inside a batch file and then re-emitt it to the calling program.
-const blockSubmitCommandTemplate = "bitcoin-cli -datadir=D:\\Documents\\Programs\\bitcoin\\data\\regtest submitblock ${block}";
+// capture the output from a command inside a batch file and then re-emit it to the calling program.
+const blockSubmitCommandTemplate = "bitcoin-core-scripts" + require("path").sep + "submitblock.bat submitblock ${block}";
 
 let lastBlockBuffer = Buffer.alloc(256);    // Keep a prefilled buffer around so we can quickly update and send it. Make it way too big here and know about lengths in the code below.
 let lastBlockTimeSecs =0;                   // Time current round started. Updated in update buffer functions.
