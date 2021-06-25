@@ -162,14 +162,23 @@
 <script>
     // https://css-tricks.com/the-trick-to-viewport-units-on-mobile/
 
-    // We must account for the pmargin here. I tried border-box and it did not work at all. :/
-    const innerheight_with_8px_margin = window.innerHeight - (8*2);
+    function calculateViewportHeight() {
+        // We must account for the pmargin here. I tried border-box and it did not work at all. :/
+        const innerheight_with_8px_margin = window.innerHeight - (8 * 2);
 
-    //viewport height multiplied by 1% to get a value for a vh unit
-    const vh = innerheight_with_8px_margin * 0.01;
+        //viewport height multiplied by 1% to get a value for a vh unit
+        const vh = innerheight_with_8px_margin * 0.01;
 
-    // Then we set the value in the --vh custom property to the root of the document
-    document.documentElement.style.setProperty('--vh', `${vh}px`);
+        // Then we set the value in the --vh custom property to the root of the document
+        document.documentElement.style.setProperty('--vh', `${vh}px`);
+    }
+
+    // Do it now...
+    calculateViewportHeight();
+
+
+    // ...and anytime the screen size changes
+    window.addEventListener('resize',  calculateViewportHeight );
 
 </script>
 <style>
