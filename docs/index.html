@@ -265,7 +265,7 @@
                                 <table id="roundOverTable" style="width:100%; height:100%; visibility: hidden;" >
                                     <tr style="width: 100%; height: 100%; background: midnightblue; color: white;">
                                         <td style="width: 100%; height: 100%; text-align: center; vertical-align: center;">
-                                            <h2>THIS ROUND IS OVER</h2>
+                                            <h2 style="margin-block-start:0.2em;">THIS ROUND IS OVER</h2>
                                             <button onclick="startRound();">Click to join the next round</button>
                                         </td>
                                     </tr>
@@ -273,16 +273,16 @@
                             </div>
 
                             <div style="grid-row:1; grid-column:1">
-                                <table id="welcome" style="width:100%; height:100%; visibility: hidden; opacity: 90%;" >
-                                    <tr style="width: 100%; height: 100%; background: midnightblue; color: white;">
-                                        <td style="padding:30px; text-align: center; vertical-align: center;">
-                                            <div style="display:inline-block; width: auto">
-                                            <h2><bold>HOW TO PLAY</bold></h2>
-                                            <ol style="text-align: left; margin-left: auto; margin-right: auto;">
-                                                <li>Click on numbers below</li>
-                                                <li>Make all wheels come up #ashes</li>
-                                                <li>Win a bitcoin</li>
-                                            </ol>
+                                <table id="welcome" style="width:100%; height:100%; visibility: hidden;" >
+                                    <tr style="width: 100%; height: 100%; background: rgba(25,25,112,0.9); color: white;">
+                                        <td style="text-align: center; vertical-align: center;">
+                                            <div style="display:inline-block; width: auto;">
+                                                <h2 style="margin-block-start:1px;margin-block-end: 0.5em;font-size: 1.2em;">HOW TO PLAY</h2>
+                                                <ol style="text-align: left; margin-left: auto; margin-right: auto; margin-bottom:1px; padding-inline-start: 1px; padding-inline-end: 1px; padding-bottom: 1px; margin-block-start: 0.5em;">
+                                                    <li>Click on numbers below</li>
+                                                    <li>Make all wheels come up #ashes</li>
+                                                    <li>Win a bitcoin</li>
+                                                </ol>
                                             </div>
                                         </td>
                                     </tr>
@@ -393,7 +393,8 @@
 <!-- WELCOME SCREEN FOR NEWCOMERS --->
 
 <script>
-    if (! document.cookie.includes("skipwelcome=true") ) {
+    // To force the welcome screen, enter 'document.cookie="skipwelcome=false"' into the console and refresh page.
+    if (  !document.cookie.includes("skipwelcome=true") ) {
         // Show welcome screen (gets hidden on first button press)
         document.getElementById("welcome").style.visibility="visible";
 
