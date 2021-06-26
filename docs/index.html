@@ -271,6 +271,24 @@
                                     </tr>
                                 </table>
                             </div>
+
+                            <div style="grid-row:1; grid-column:1">
+                                <table id="welcome" style="width:100%; height:100%; visibility: hidden; opacity: 90%;" >
+                                    <tr style="width: 100%; height: 100%; background: midnightblue; color: white;">
+                                        <td style="padding:30px; text-align: center; vertical-align: center;">
+                                            <div style="display:inline-block; width: auto">
+                                            <h2 style="text-decoration: underline;">HASH HUNT INSTRUCTIONS</h2>
+                                            <ol style="text-align: left; margin-left: auto; margin-right: auto;">
+                                                <li>Click on numbers below</li>
+                                                <li>Make all wheels come up hashes (#)</li>
+                                                <li>Win a bitcoin</li>
+                                            </ol>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </div>
+
                         </div>
                     </td>
                 </tr>
@@ -369,6 +387,22 @@
             kenocells[bit_index]=cell;
             bit_index++;
         }
+    }
+</script>
+
+<!-- WELCOME SCREEN FOR NEWCOMERS --->
+
+<script>
+    if (! document.cookie.includes("skipwelcome=true") ) {
+        // Show welcome screen (gets hidden on first button press)
+        document.getElementById("welcome").style.visibility="visible";
+
+        // Don't show again for a week
+        // https://www.w3schools.com/js/js_cookies.asp
+        const d = new Date();
+        d.setTime(d.getTime() + (7*24*60*60*1000));
+        let expires = "expires="+ d.toUTCString();
+        document.cookie = "skipwelcome=true;" + expires
     }
 </script>
 
@@ -798,6 +832,9 @@
     // but it does not matter as long as we can update faster than a player can click.
 
     function kenoTableClickHandler(cell) {
+
+        // Clear the welcome screen on first click in case it is shown
+        document.getElementById("welcome").style.visibility="hidden";
 
         if (cell.classList.contains("kenocell_selected")) {
             cell.classList.remove("kenocell_selected");
