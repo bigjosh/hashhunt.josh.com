@@ -460,7 +460,10 @@
     function roundOver() {
         deactivatePlay();
         resetWheels();      // Just to stop any pulsing hashes from being visible around the edge of the alert
-        roundOverTable.style.visibility="visible";
+        
+        if ( document.getElementById("welcome").style.visibility!="visible" ) {     // Do not cover the welcome screen with a round over message
+            roundOverTable.style.visibility="visible";
+        }
     }
 
 </script>
