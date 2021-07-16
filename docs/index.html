@@ -458,11 +458,13 @@
     }
 
     function roundOver() {
-        deactivatePlay();
-        resetWheels();      // Just to stop any pulsing hashes from being visible around the edge of the alert
         
-        if ( document.getElementById("welcome").style.visibility!="visible" ) {     // Do not cover the welcome screen with a round over message
+        if ( document.getElementById("welcome").style.visibility!="visible" ) {     // Do not cover the welcome screen with a round over message since it is already modal. 
+        
+            deactivatePlay();
+            resetWheels();      // Just to stop any pulsing hashes from being visible around the edge of the alert             
             roundOverTable.style.visibility="visible";
+            
         }
     }
 
