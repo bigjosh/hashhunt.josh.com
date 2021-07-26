@@ -16,10 +16,10 @@
     1) It is possible for a user to pick a winning combination of numbers.
     2) One bitcoin will be awarded to the first user to find a winning combination in each round.
     3) At no time will I ever touch the user's winnings or even have the opportunity to do so. The user
-       will be able to claim their winnings directly an anonymously using any bitcoin wallet that accepts a WIF
+       will be able to claim their winnings directly and anonymously using any bitcoin wallet that accepts a WIF
        formatted private key (all of them).
 
-    Thank you for your time and thoughtful participation in this grand experiment and enjoy the hunt.
+    Thank you for your time and thoughtful participation in this grand experiment. Enjoy the hunt!
 
     -josh
 
@@ -85,10 +85,6 @@
         animation-iteration-count: infinite;
         animation-direction: alternate;
     }
-
-    /* We never want that extra padding that seems to cmoe with table https://stackoverflow.com/a/25915361/3152071 */
-    /*table tr td {*/
-    /*}*/
 
     table {
         table-layout: fixed;
@@ -158,7 +154,6 @@
 
 <!-- Fix the iPhone/Safari viewport height issue --->
 
-
 <script>
     // https://css-tricks.com/the-trick-to-viewport-units-on-mobile/
 
@@ -221,7 +216,7 @@
                     is replaced locally with the "win" page that has the player's claim code along with instructions on how
                     to check the status of the submission and claim the prize.
 
-        KENOTABLE  -Shows a table of numbers. The player click on the numbers to select or deselect them in any combination.
+        KENOTABLE  -Shows a table of numbers. Players click on the numbers to select or deselect them in any combination.
 
     ROUNDOVERTABLE -A table that is positioned over the WHEELSTABLE but is usually hidden. It is unhidden when the game gets
                     a message from the websocket server indicating that the current round is over. Clicking the "Join new round"
@@ -322,7 +317,7 @@
     window.nowSecs;                     // Time to used for current block. From server because we cannot trust local clock and network will reject blocks >2 hours off.
     window.nbits;                       // nbits for difficulty target from server.
     window.prevHash;                    // 32 byte buffer with previous block hash. Stored in bincoin LE order.
-    window.roundNumber;                 // UINT32
+    window.roundNumber;                 // UINT32. Required in thecoinbase as per BIP-34.
 
     window.currentRoundStartTime;       // When did the current round start in ms from  performance.now clock. Used for elapsed time display.
 
@@ -970,7 +965,7 @@
 </script>
 
 
-<!--- GENERATE A BLOCK WITH A COINBASE THAT INCLUDES OUT EXTRANONCE BITS. --->
+<!--- GENERATE A BLOCK WITH A COINBASE THAT INCLUDES OUR EXTRANONCE BITS. --->
 
 <script>
 
@@ -1208,9 +1203,9 @@
 
     // Takes a  32 byte buffer as a hex string and returns
     // the number of "free" nibbles where "free" means unconstrained as in "free variable".
-    // So that means that the free least significant niblle in a hash can be any value and
+    // So that means that the free least significant nibble in a hash can be any value and
     // the hash is still guaranteed to be less than the target. Any nibbles more significant
-    // than these "free" once must be zero for a hash to win.
+    // than these "free" ones must be zero for a hash to win.
 
     // During actual game play we are generous and give the win to the player
     // in the case where the last (least significant) wheel (nibble) is not a hash symbol (zero nibble)
@@ -1377,7 +1372,7 @@
 
 <script>
 
-    // The server only sends a new block on average every 10 minutes, and nothing between so would will never
+    // The server only sends a new block on average every 10 minutes, and nothing between so we would will never
     // know that we lost connection unless we try to submit a block back to the server. To make sure this doesn't
     // happen, the server sends a `ping` every 15 seconds. If the connection is broken then we will timeout and close
     // the connection, which will alert the user.
@@ -1495,9 +1490,7 @@
         // TODO: Other ways also?
     }
 
-    // TODO: Serve static files also https://stackoverflow.com/a/20920463/3152071
-
-    // Open connection to server. Sadly this is hard coded becuase I could not figure how a good way to get express and ws running on the server at the same time.
+    // Open connection to server. Sadly this URL is hard coded becuase I could not figure how a good way to get express and ws running on the server at the same time.
     ws = new WebSocket( window.webSocketServerURL );
     ws.binaryType = "arraybuffer";
     deactivatedAlert("Connecting to server")
@@ -1520,7 +1513,7 @@
     ws.onerror = function(event) {
         deactivatedAlert("Network error - refresh page");
         console.error("WebSocket error observed:", event);
-        // We depending on the fact that an onClose() will soon follow to alert the player
+        // We depend on the fact that an onClose() will soon follow to alert the player
         // https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API/Writing_WebSocket_client_applications#connection_errors
     };
 
@@ -1535,7 +1528,7 @@
 <!--- KEEP TRACK OF USAGE --->
 
 <script type="text/javascript">
-        // So I can know how many websocket servers I need to add and where to put them to keep up.
+        // So I can know how many websocket servers I need to add and where to put them.
         var sc_project=12555529;
         var sc_invisible=1;
         var sc_security="928207ec";
