@@ -31,6 +31,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+
     <!-- Nice google fonts  -->
     <link rel="preconnect" href="https://fonts.gstatic.com">
     <link href="https://fonts.googleapis.com/css2?family=Girassol&family=Roboto&display=swap" rel="stylesheet">
@@ -246,7 +248,7 @@
                 <tr>
                     <td>
                         <table style="display: inline;">
-                            <tr><td><div style="box-sizing:border-box;"><span style="font-family: 'Girassol', serif ;font-size: large; padding: 5px; background: black; color:white; display:inline-block;">HASH HUNT</span></div></td></tr>
+                            <tr><td><div style="box-sizing:border-box;"><span style="font-family: 'Girassol', serif ;font-size: large; padding: 5px; background: black; color:white; display:inline-block;" id="title">HASH HUNT</span></div></td></tr>
                         </table>
                     </td>
                     <td style="text-align: right; padding-right: 10px;">
@@ -336,9 +338,10 @@
     // Info on current round, based on data received over the websocket
     // TODO: Package this block stuff into an object to keep it neat
     window.version = 0x2268e004;        // (found empirically from recent blocks)
+                                        // Seems like it just has to be >4 as per https://bitcoin.stackexchange.com/questions/114633/why-is-the-block-header-version-value-different-from-the-getblocktemplate-versio#comment130461_114634
                                         // TODO: Get version from previous block over websocket so we are good if it ever changes.
 
-    window.nowSecs;                     // Time to used for current block. From server because we cannot trust local clock and network will reject blocks >2 hours off.
+    window.nowSecs;                     // Time to be used for current block. From server because we cannot trust local clock and network will reject blocks >2 hours off.
     window.nbits;                       // nbits for difficulty target from server.
     window.prevHash;                    // 32 byte buffer with previous block hash. Stored in bincoin LE order.
     window.roundNumber;                 // UINT32. Required in thecoinbase as per BIP-34.
@@ -379,7 +382,7 @@
             let cell = row.insertCell();
             window.wheelstablecells[cell_index] = cell;
             cell.classList.add("wheelscell");
-            cell.appendChild(document.createTextNode("❓"));    // Question mark
+            cell.appendChild(document.createTextNode("?"));    // Question mark
             cell_index++;
         }
         row_index++;
@@ -493,7 +496,7 @@
     // To force the welcome screen, enter 'document.cookie="skipwelcome=false"' into the console and refresh page.
     if (  !document.cookie.includes("skipwelcome=true") ) {
         // Show welcome screen (gets hidden on first button press)
-        console.log("SHow welcome")
+        console.log("Show welcome")
         welcomeOverlay.style.visibility="visible";
         wheelsOverlay.style.visibility="hidden";
         // Don't show again for a week
@@ -986,13 +989,13 @@
         serializedFullBlock =  serializeBlockWithTX( blockHeader , coinbaseTx);
 
         // Belt - Send to our websocket server, which will get it to a full node lickity split...
-        submitBlockToServer( serializedFullBlock );
+        submitBlockToWsServer( serializedFullBlock );
 
         addSubmisionStatus("Solution successfully submitted....");
 
         // Suspenders - Send to our dedicated independent node that that does nothing but listen for these, just in case
         // something goes wrong with the websocket at least we will get the winning block onto the network...
-        // TODO: Set up a node that accepts our winning blocks via HTTP post.
+        // TODO: Find or set up a node that accepts blocks via HTTP post.
 
     }
 
@@ -1426,10 +1429,18 @@
         pingTimer=setTimeout(pingTimeout,pingTimeoutMs);
     }
 
-    function resetPing() {            // extend timeout
-        // TODO: Some user feedback?
+    function resetPing() {          // extend timeout
         clearTimeout(pingTimer);    // Clear the existing timer
         setPingTimer();             // Start a new one
+
+        // Give the use some visual feedback that we are still connected
+        document.getElementById("title").style.color="green";          // Set title green
+        setTimeout(
+            function() {
+                document.getElementById("title").style.color="white";  // Then set it back white
+            },
+            1000                                                       // A second later
+        );
 
     }
 
@@ -1519,9 +1530,8 @@
 
     }
 
-    function submitBlockToServer( serializedBlock ) {
+    function submitBlockToWsServer( serializedBlock ) {
         ws.send( serializedBlock );
-        // TODO: Other ways also?
     }
 
     // Open connection to server. Sadly this URL is hard coded becuase I could not figure how a good way to get express and ws running on the server at the same time.
@@ -1565,8 +1575,8 @@
 <!--- KEEP TRACK OF USAGE --->
 
 <script type="text/javascript">
-        // Dont freak out, this is just so I can know how many websocket servers
-        // I need to add and where to put them.
+        // Dont freak out, this is just so I can know how many websocket
+        // servers I need to add and where to put them.
         var sc_project=12555529;
         var sc_invisible=1;
         var sc_security="928207ec";

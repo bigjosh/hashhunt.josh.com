@@ -211,7 +211,7 @@ function startHttpServer(port) {
                 res.writeHead(200, {'Content-Type': 'text/html'});
                 res.end('Blocknotify good, thank you.');
 
-                const blockhash = Buffer.from(queryObject.blockhash, "hex");          // We keep and send in BE format becuase easier to reverse on the client.
+                const blockhash = Buffer.from(queryObject.blockhash, "hex");          // We keep and send in BE format because easier to reverse on the client.
                 const nbits = parseInt( queryObject.nbits , 16 );
                 const height = queryObject.height;
 
