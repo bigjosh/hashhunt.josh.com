@@ -938,6 +938,10 @@
     function onSolve( blockHeaderHashHexString , blockHeader , coinbaseTx ) {
 
         // Now create and show a winner info page. Do it locally to avoid any network problems or delays.
+
+        // Put our logo at the top, this will continue to flash green as long as we are connected just like the element of the same ID on the play page
+        <div style="box-sizing:border-box;"><span style="font-family: 'Girassol', serif ;font-size: large; padding: 5px; background: black; color:white; display:inline-block;" id="title">HASH HUNT</span></div>
+
         // https://www.w3schools.com/jsref/met_win_open.asp
         document.writeln("<h1>Hash Hunt Solved Puzzle Page</h1>");
         document.writeln("<p>Congradulations on solving the puzzle! What happens next?</p>");
