@@ -282,6 +282,22 @@ function startHttpServer(port) {
 
             res.end('###');
 
+        } else {
+
+            // Return a little help page
+
+            res.writeHead(200, {'Content-Type': 'text/html'});
+
+            let s="<html><body><table border='1'>";
+
+            s+= "<tr><td style='text-align:right'>List of connected websocket clients</td><td><a href='/status'>status</a></td></tr>";
+
+            s+="</table></body></html>";
+
+            res.write(s);
+
+            res.end('###');
+
         }
 
 
@@ -321,7 +337,7 @@ function blockNotify(  blockhash , nbits , height , lastBlockBuffer ) {
 
     // TODO: For now we will always send nbits even when it does not change. We can optimize when things are stable.
     if ( height % 2016 == 1 || true ) {
-        // Difficulty adjustment block. Note we check ==1 and not ==0 becuase we will not see the adjustment in the nbits
+        // Difficulty adjustment block. Note we check ==1 and not ==0 because we will not see the adjustment in the nbits
         // until the first block actually mined after the adjustment.
         // TODO:  Find a way to get the new difficulty sooner. https://bitcoin.stackexchange.com/q/106055/113175
 
