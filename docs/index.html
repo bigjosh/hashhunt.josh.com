@@ -8,18 +8,18 @@
     using only the most primitive and brutal tools available: Pure Javascript, CSS, and HTML.
 
     Why? I did it for you, gentle reader. So that you could directly and independently verify that all
-    Hash Hunt prize claims are absolutely and factually true. Code cannot lie, and so here is- naked and
+    Hash Hunt prize claims are absolutely and verifiably true. Code cannot lie, and so here is- naked and
     unminified for your inspection.
 
-    By the time you get to the end of this file, you will see that...
+    By the time you get to the end of this file, you will see that... 
 
     1) It is possible for a user to pick a winning combination of numbers.
     2) One bitcoin will be awarded to the first user to find a winning combination in each round.
-    3) At no time will I ever touch the user's winnings or even have the opportunity to. The user
-       will be able to claim their winnings directly using any bitcoin wallet that accepts a WIF formatted
-       private key (all of them).
+    3) At no time will I ever touch the user's winnings or even have the opportunity to do so. The user
+       will be able to claim their winnings directly and anonymously using any bitcoin wallet that accepts a WIF
+       formatted private key (all of them).
 
-    Thank you for your time and thoughtful participation in this grand experiment.
+    Thank you for your time and thoughtful participation in this grand experiment. Enjoy the hunt!
 
     -josh
 
@@ -86,10 +86,6 @@
         animation-direction: alternate;
     }
 
-    /* We never want that extra padding that seems to cmoe with table https://stackoverflow.com/a/25915361/3152071 */
-    /*table tr td {*/
-    /*}*/
-
     table {
         table-layout: fixed;
         border-spacing: 0px;
@@ -128,6 +124,12 @@
         text-align: center;
         text-decoration: none;
         font-size: 16px;
+        cursor: pointer;
+    }
+
+    /* https://stackoverflow.com/a/51651828/3152071 */
+    button:focus {
+        outline: blue auto 5px;
     }
 
     /* https://jsfiddle.net/quickcleancode/q1jkudwc/7/ */
@@ -158,18 +160,26 @@
 
 <!-- Fix the iPhone/Safari viewport height issue --->
 
-
 <script>
     // https://css-tricks.com/the-trick-to-viewport-units-on-mobile/
 
-    // We must account for the pmargin here. I tried border-box and it did not work at all. :/
-    const innerheight_with_8px_margin = window.innerHeight - (8*2);
+    function calculateViewportHeight() {
+        // We must account for the pmargin here. I tried border-box and it did not work at all. :/
+        const innerheight_with_8px_margin = window.innerHeight - (8 * 2);
 
-    //viewport height multiplied by 1% to get a value for a vh unit
-    const vh = innerheight_with_8px_margin * 0.01;
+        //viewport height multiplied by 1% to get a value for a vh unit
+        const vh = innerheight_with_8px_margin * 0.01;
 
-    // Then we set the value in the --vh custom property to the root of the document
-    document.documentElement.style.setProperty('--vh', `${vh}px`);
+        // Then we set the value in the --vh custom property to the root of the document
+        document.documentElement.style.setProperty('--vh', `${vh}px`);
+    }
+
+    // Do it now...
+    calculateViewportHeight();
+
+
+    // ...and anytime the screen size changes
+    window.addEventListener('resize',  calculateViewportHeight );
 
 </script>
 <style>
@@ -205,19 +215,24 @@
        STATUS DIV  -Shows (1) waiting for connection to the websocket server, (2) lost connection to websocket server, or
                     (3) the elapsed time in the current round while actively connected to the websocket server and game is live.
 
-       WHEELSTABLE -Shows the "wheels" that the player is trying to get to come up all hashes ("#"). There are 16 possible
+     WHEELSOVERLAY -Shows the "wheels" that the player is trying to get to come up all hashes ("#"). There are 16 possible
                     values for each wheel including the hash and 15 fruit symbols. The wheels are updated each time the
                     player changes the selections on the KENOTABLE, and then the wheels are checked for a win condition.
                     If a solution was found, the winning block is immediately sent to the server and then the current page
                     is replaced locally with the "win" page that has the player's claim code along with instructions on how
-                    to check the status of the submission and claim the prize.
+                    to check the status of the submission and claim the prize. Visible by default.
 
-        KENOTABLE  -Shows a table of numbers. The player click on the numbers to select or deselect them in any combination.
-
-    ROUNDOVERTABLE -A table that is positioned over the WHEELSTABLE but is usually hidden. It is unhidden when the game gets
+  ROUNDOVEROVERLAY -A table that is positioned over the WHEELSOVERLAY but is usually hidden. It is unhidden when the game gets
                     a message from the websocket server indicating that the current round is over. Clicking the "Join new round"
                     button hides the table again, clears the previous puzzle pattern, and joins the new round using the newly
                     received puzzle parameters.
+
+    WELCOMEOVERLAY -A table that is positioned over the WHEELSOVERLAY but is usually hidden. It is unhidden if the page sees that
+                    it has not been loaded within the past week. Provides some introduction instructions. Hidden again on each
+                    click on a KENOTABLE cell.
+
+        KENOTABLE  -Shows a table of numbers. Players click on the numbers to select or deselect them in any combination. All
+                    cells are disabled when either a round is over or we loose our connection to the websocket server.
 
 --->
 
@@ -248,20 +263,51 @@
             <table id="grids_table" style="width:100%; height: 100%;">
                 <tr style="height: 20%;">
                     <td>
-                        <div id="wheelsAndRoundOver" style="display: grid; width: 100%; height:100%">
-                            <div style="grid-row:1; grid-column:1; width: 100%; height: 100%;">
+                        <div style="display: grid; width: 100%; height:100%">
+
+                            <div id="wheelsOverlay" style="grid-row:1; grid-column:1; width: 100%; height: 100%; visibility: visible; z-index: 1;">
                                 <table id="wheelsTable" style="width:100%; height: 100%" ></table>
                             </div>
-                            <div style="grid-row:1; grid-column:1">
-                                <table id="roundOverTable" style="width:100%; height:100%; visibility: hidden;" >
+
+                            <div id="roundOverOverlay" style="grid-row:1; grid-column:1; visibility: hidden; z-index: 2;">
+                                <table style="width:100%; height:100%;" >
                                     <tr style="width: 100%; height: 100%; background: midnightblue; color: white;">
                                         <td style="width: 100%; height: 100%; text-align: center; vertical-align: center;">
-                                            <h2>THIS ROUND IS OVER</h2>
-                                            <button onclick="startRound();">Click to join the next round</button>
+                                            <h2 style="margin-block-start:0.2em;">THIS ROUND IS OVER</h2>
+                                            <button onclick="roundOverOverlay.style.visibility='hidden';startRound();">Click to join the next round</button>
                                         </td>
                                     </tr>
                                 </table>
                             </div>
+
+                            <div id="welcomeOverlay" style="grid-row:1; grid-column:1; visibility: hidden; z-index: 3;">
+                                <table id="welcome" style="width:100%; height:100%;" >
+                                    <tr style="width: 100%; height: 100%; background: rgba(25,25,112,0.9); color: white;">
+                                        <td style="text-align: center; vertical-align: center;">
+                                            <div style="display:inline-block; width: auto;">
+                                                <h2 style="margin-block-start:1px;margin-block-end: 0.5em;font-size: 1.2em;">HOW TO PLAY</h2>
+                                                <ol style="text-align: left; margin-left: auto; margin-right: auto; margin-bottom:1px; padding-inline-start: 1px; padding-inline-end: 1px; padding-bottom: 1px; margin-block-start: 0.5em;">
+                                                    <li>Click on numbers below</li>
+                                                    <li>Make all wheels come up #ashes</li>
+                                                    <li>Win a bitcoin</li>
+                                                </ol>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </div>
+
+                            <div id="connectionLostOverlay" style="grid-row:1; grid-column:1; visibility: hidden; z-index: 4;">
+                                <table style="width:100%; height:100%;" >
+                                    <tr style="width: 100%; height: 100%; background: midnightblue; color: white;">
+                                        <td style="width: 100%; height: 100%; text-align: center; vertical-align: center;">
+                                            <h2 style="margin-block-start:0.2em;">CONNECTION LOST</h2>
+                                            <button onclick="location.reload();">Click to reload page</button>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </div>
+
                         </div>
                     </td>
                 </tr>
@@ -295,7 +341,7 @@
     window.nowSecs;                     // Time to used for current block. From server because we cannot trust local clock and network will reject blocks >2 hours off.
     window.nbits;                       // nbits for difficulty target from server.
     window.prevHash;                    // 32 byte buffer with previous block hash. Stored in bincoin LE order.
-    window.roundNumber;                 // UINT32
+    window.roundNumber;                 // UINT32. Required in thecoinbase as per BIP-34.
 
     window.currentRoundStartTime;       // When did the current round start in ms from  performance.now clock. Used for elapsed time display.
 
@@ -361,7 +407,19 @@
             bit_index++;
         }
     }
+
+    // Clear all selections from kenotable and start fresh with question marks.
+    // Happens whenever a new round starts or we loose websocket connection.
+    // These cells get selected in kenoTableClickHandler() which is the onclick() handler of the cells.
+    function resetKenoTable() {
+        for (let cell of kenocells) {
+            cell.classList.remove("kenocell_selected");
+        }
+    }
+
 </script>
+
+
 
 <!-- STATUS BAR UI --->
 
@@ -381,13 +439,17 @@
 
     }
 
-    var roundOverTable = document.getElementById('roundOverTable');     // Save in global so we don't have to look up every time.
+    // Save in global so we don't have to look up every time.
+    var connectionLostOverlay = document.getElementById('connectionLostOverlay');
+    var roundOverOverlay = document.getElementById('roundOverOverlay');
+    var welcomeOverlay = document.getElementById('welcomeOverlay');
+    var wheelsOverlay = document.getElementById('wheelsOverlay');
 
     // We have all the info from the server to generate the puzzle, so let player start clicking
     // Clears any selected keno cells.
     function startRound() {
+
         resetKenoTable();
-        roundOverTable.style.visibility="hidden";      // Hide the "new round" popup alert
 
         // Apparently Safari needs us to apply this style to every child rather than just the container. :/
         kenocells.forEach( function (value,index,array ) { value.classList.remove("disabled"); });
@@ -396,14 +458,12 @@
         statusTimer = setInterval( updateStatus, 1000);          // Update elapsed time counter once per second
     }
 
+    // Disables all the keno cells so they can not be clicked and stops the status timer from updating
+
     function deactivatePlay() {
 
         // Apparently Safari needs us to apply this style to every child rather than just the container. :/
         kenocells.forEach( function (value,index,array ) { value.classList.add("disabled"); });
-
-        // Just in case the user is sitting at a "start next round" alert, this hides it and makes it so they can not jump into next round.
-        roundOverTable.style.visibility="hidden";      // Hide the "new round" popup alert
-
 
         clearInterval( statusTimer );       // Cancel update timer
     }
@@ -414,11 +474,35 @@
     }
 
     function roundOver() {
-        deactivatePlay();
-        resetWheels();      // Just to stop any pulsing hashes from being visible around the edge of the alert
-        roundOverTable.style.visibility="visible";
+
+        // We do not show the "round over" overlay if we are already showing the "welcome" overlay
+        // The "welcome" will get hidden as soon as the user presses the first button.
+        if (!welcomeOverlay.style.visibility.startsWith("visible")) {
+            deactivatePlay();
+            resetWheels();      // Just to stop any pulsing hashes from being visible around the edge of the alert
+            roundOverOverlay.style.visibility = "visible";
+        }
+
     }
 
+</script>
+
+<!-- WELCOME SCREEN FOR NEWCOMERS --->
+
+<script>
+    // To force the welcome screen, enter 'document.cookie="skipwelcome=false"' into the console and refresh page.
+    if (  !document.cookie.includes("skipwelcome=true") ) {
+        // Show welcome screen (gets hidden on first button press)
+        console.log("SHow welcome")
+        welcomeOverlay.style.visibility="visible";
+        wheelsOverlay.style.visibility="hidden";
+        // Don't show again for a week
+        // https://www.w3schools.com/js/js_cookies.asp
+        const d = new Date();
+        d.setTime(d.getTime() + (7*24*60*60*1000));
+        let expires = "expires="+ d.toUTCString();
+        document.cookie = "skipwelcome=true;" + expires;
+    }
 </script>
 
 <!--- KEYBOARD INTERFACE --->
@@ -659,14 +743,6 @@
 
     // Clear all selections from kenotable and start fresh with question marks.
     // Happens whenever a new round starts or we loose websocket connection.
-    function resetKenoTable() {
-        for (let cell of kenocells) {
-            cell.classList.remove("kenocell_selected");
-        }
-    }
-
-    // Clear all selections from kenotable and start fresh with question marks.
-    // Happens whenever a new round starts or we loose websocket connection.
     function resetWheels() {
         for (let cell of wheelstablecells) {
             cell.classList.remove( "wheels_cell_hash");
@@ -789,6 +865,11 @@
     // but it does not matter as long as we can update faster than a player can click.
 
     function kenoTableClickHandler(cell) {
+
+        // Clear the welcome screen on first click in case it is shown
+        welcomeOverlay.style.visibility="hidden";
+        // show the wheels on the first click after the welcome screen was displayed
+        wheelstable.style.visibility="visible";
 
         if (cell.classList.contains("kenocell_selected")) {
             cell.classList.remove("kenocell_selected");
@@ -918,7 +999,7 @@
 </script>
 
 
-<!--- GENERATE A BLOCK WITH A COINBASE THAT INCLUDES OUT EXTRANONCE BITS. --->
+<!--- GENERATE A BLOCK WITH A COINBASE THAT INCLUDES OUR EXTRANONCE BITS. --->
 
 <script>
 
@@ -1156,9 +1237,9 @@
 
     // Takes a  32 byte buffer as a hex string and returns
     // the number of "free" nibbles where "free" means unconstrained as in "free variable".
-    // So that means that the free least significant niblle in a hash can be any value and
+    // So that means that the free least significant nibble in a hash can be any value and
     // the hash is still guaranteed to be less than the target. Any nibbles more significant
-    // than these "free" once must be zero for a hash to win.
+    // than these "free" ones must be zero for a hash to win.
 
     // During actual game play we are generous and give the win to the player
     // in the case where the last (least significant) wheel (nibble) is not a hash symbol (zero nibble)
@@ -1325,7 +1406,7 @@
 
 <script>
 
-    // The server only sends a new block on average every 10 minutes, and nothing between so would will never
+    // The server only sends a new block on average every 10 minutes, and nothing between so we would will never
     // know that we lost connection unless we try to submit a block back to the server. To make sure this doesn't
     // happen, the server sends a `ping` every 15 seconds. If the connection is broken then we will timeout and close
     // the connection, which will alert the user.
@@ -1443,9 +1524,7 @@
         // TODO: Other ways also?
     }
 
-    // TODO: Serve static files also https://stackoverflow.com/a/20920463/3152071
-
-    // Open connection to server. Sadly this is hard coded becuase I could not figure how a good way to get express and ws running on the server at the same time.
+    // Open connection to server. Sadly this URL is hard coded becuase I could not figure how a good way to get express and ws running on the server at the same time.
     ws = new WebSocket( window.webSocketServerURL );
     ws.binaryType = "arraybuffer";
     deactivatedAlert("Connecting to server")
@@ -1466,16 +1545,19 @@
     }
 
     ws.onerror = function(event) {
-        deactivatedAlert("Network error - refresh page");
+        deactivatedAlert("Network error");
+        connectionLostOverlay.style.visibility="visible";
+
         console.error("WebSocket error observed:", event);
-        // We depending on the fact that an onClose() will soon follow to alert the player
+        // We depend on the fact that an onClose() will soon follow to alert the player
         // https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API/Writing_WebSocket_client_applications#connection_errors
     };
 
     ws.onclose = function() {
         console.log('Websocket: Connection closed!' , event);
         ws = null;
-        deactivatedAlert("Connection lost - refresh page");
+        deactivatedAlert("Websocket closed");
+        connectionLostOverlay.style.visibility="visible";
     }
 
 </script>
@@ -1483,7 +1565,8 @@
 <!--- KEEP TRACK OF USAGE --->
 
 <script type="text/javascript">
-        // So I can know how many websocket servers I need to add and where to put them to keep up.
+        // Dont freak out, this is just so I can know how many websocket servers
+        // I need to add and where to put them.
         var sc_project=12555529;
         var sc_invisible=1;
         var sc_security="928207ec";
