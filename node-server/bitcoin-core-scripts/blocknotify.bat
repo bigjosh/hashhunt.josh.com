@@ -1,23 +1,27 @@
 REM This script is called from the `blocknotify` event in the `bitcoin-core` config file. 
 REM Assumes that the hash of the new block is passed as an argument to this batch file. 
 
-REM We need to specify the datadir used by `bitcoin-core` so that `blitcoin-cli` can find the cookie file to authenticate
-REM Really bitcoin-core, you could just have the deamon and cli use the same config file by default :/
-set datadir="D:\Documents\Programs\bitcoin\data\regtest"
 
-bitcoin-cli -datadir=%datadir% getbestblockhash >%temp%\newblockhash.json
+
+REM bitcoin-core does not serialize calls to blocknotify, so this at least isolatyes them
+REM Yes durring catch up it is possible these could end up out of order, but once
+REM we do catch up then eveything will be OK
+
+set "tempdir=%temp%\%random%"
+
+mkdir %tempdir%
+
+bitcoin-cli getbestblockhash >%tempdir%\newblockhash.json
 
 REM https://stackoverflow.com/a/2768658/3152071
-set /p BH=<%temp%\newblockhash.json
+set /p BH=<%tempdir%\newblockhash.json
 
-bitcoin-cli -datadir=%datadir% getblockheader %BH% >%temp%\newblockinfo.json
+bitcoin-cli getblockheader %BH% >%tempdir%\newblockinfo.json
 
 REM POST the JSON file to our local server https://curl.se/docs/manpage.html#-d
-curl -d @%temp%\newblockinfo.json http://localhost:81/blocknotify
+curl -d @%tempdir%\newblockinfo.json http://localhost:81/blocknotify
 
-del %temp%\newblockhash.json
-del %temp%\newblockinfo.json
+del %tempdir%\newblockhash.json
+del %tempdir%\newblockinfo.json
  
-
-
-	
+rmdir %tempdir%
