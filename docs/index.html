@@ -348,6 +348,7 @@
     // Our wallet info, generated once on page load
     window.testmode = false;            // Test or Main. Set if URL contains "TESTMODE".
     window.keyPair;                     // User's keypair
+    window.network;
 
     // Info on current round, based on data received over the websocket
     // TODO: Package this block stuff into an object to keep it neat
@@ -702,23 +703,22 @@
 
 <script>
 
-    function getAddressFromKeyPair( kp ) {
-        bitcoinjs.payments.p2pkh({ pubkey: kp.publicKey ,  network  }).address;
-    }
-
-    let network;
-
     if (testmode) {
-        network = bitcoinjs.networks.testnet;
+        window.network = bitcoinjs.networks.testnet;
     } else {
-        network = bitcoinjs.networks.main;
+        window.network = bitcoinjs.networks.bitcoin;
     }
 
-    window.keyPair = bitcoinjs.ECPair.makeRandom( {network: network} );
+    window.keyPair = bitcoinjs.ECPair.makeRandom( {network: window.network} );
 
     console.log( "Prize redemption key (do not tell to ANYONE or they can claim your prizes!):"+ window.keyPair.toWIF());
     // You can test WIFs at http://gobittest.appspot.com/PrivateKey or import them into bitcoin-core
     // with the commmand "importprivkey [key] [name for key in wallet]"
+
+    // (This was not working due to a bug in this version of bitcoinjs, but now it does thanks to ChatGPT!)
+    function getAddressFromKeyPair( kp ) {
+        return bitcoinjs.payments.p2pkh({ pubkey: kp.publicKey }).address;
+    }
 
 </script>
 
@@ -992,9 +992,9 @@
         document.writeln("   your prize. Do not share it with anyone who you do not 100% trust since anyone");
         document.writeln("   with this code can claim your prize. </p>");
         document.writeln("<h2>Status check links</h2>");
-        document.writeln("<a target='_blank' href='https://btc.com/"+blockHeaderHashHexString+"'>Check if solution was accepted by the network</a>");
+        document.writeln("<a target='_blank' href='https://explorer.btc.com/btc/search/"+blockHeaderHashHexString+"'>Check if solution was accepted by the network</a>");
         document.writeln("<br>");
-        document.writeln("<a target='_blank' href='https://btc.com/"+getAddressFromKeyPair(window.keyPair)+"'>Check if prize is available to be claimed</a>");
+        document.writeln("<a target='_blank' href='https://explorer.btc.com/btc/search/"+getAddressFromKeyPair(window.keyPair)+"'>Check if prize is available to be claimed</a>");
 
         document.writeln("<h2>Live Submision Updates Here</h2>");
 

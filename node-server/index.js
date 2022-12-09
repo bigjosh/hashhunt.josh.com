@@ -322,6 +322,29 @@ function starupNewWsConnection( ws , lastBlockBuffer ) {
 
 }
 
+// Convert difficulty that we get from `bitcoin-cli difficulty` to nbits that we can efficiently send to the client
+// https://bitcoin.stackexchange.com/a/80974/113175
+function difficulty2bits(difficulty) {
+    if (difficulty < 0) throw 'difficulty cannot be negative';
+    if (!isFinite(difficulty)) throw 'difficulty cannot be infinite';
+    for (var shiftBytes = 1; true; shiftBytes++) {
+        var word = (0x00ffff * Math.pow(0x100, shiftBytes)) / difficulty;
+        if (word >= 0xffff) break;
+    }
+    word &= 0xffffff; // convert to int < 0xffffff
+    var size = 0x1d - shiftBytes;
+    // the 0x00800000 bit denotes the sign, so if it is already set, divide the
+    // mantissa by 0x100 and increase the size by a byte
+    if (word & 0x800000) {
+        word >>= 8;
+        size++;
+    }
+    if ((word & ~0x007fffff) != 0) throw 'the \'bits\' \'word\' is out of bounds';
+    if (size > 0xff) throw 'the \'bits\' \'size\' is out of bounds';
+    var bits = (size << 24) | word;
+    return bits;
+}
+
 // Whenever bitcoin-core gets a new block, then calls the `blocknotify` batch file, which then makes
 // a `curl` call to us with the new blockhash and difficulty.
 // nbits and height are numbers, blockhash and lastBlockBuffer are buffers
