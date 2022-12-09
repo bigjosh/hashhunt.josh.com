@@ -51,6 +51,16 @@
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
+  <component name="RunManager" selected="JavaScript Debug.index.html">
+    <configuration name="index.html" type="JavascriptDebugType" temporary="true" nameIsGenerated="true" uri="http://localhost:63342/hashhunt.josh.com/docs/index.html" useBuiltInWebServerPort="true">
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="JavaScript Debug.index.html" />
+      </list>
+    </recent_temporary>
+  </component>
   <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">
@@ -70,7 +80,7 @@
       <workItem from="1632869190268" duration="341000" />
       <workItem from="1632869610284" duration="7475000" />
       <workItem from="1632932961168" duration="978000" />
-      <workItem from="1670382414344" duration="14243000" />
+      <workItem from="1670382414344" duration="24876000" />
     </task>
     <servers />
   </component>

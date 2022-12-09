@@ -81,6 +81,19 @@
         }
     }
 
+    /* Used to show network connection status on the title box */
+    /* We need A and B because there seems to be no way to properly restart a running CSS animation, */
+    /* so instead we switch back and forth between two identiucal ones. Urgh. */
+
+    @keyframes fadeGreenToWhiteA {
+        from {color: green;}
+        to {color: white;}
+    }
+    @keyframes fadeGreenToWhiteB {
+        from {color: green;}
+        to {color: white;}
+    }
+
     .wheels_cell_hash {
         animation-name: hash_cell_animation;
         animation-duration: 0.2s;
@@ -248,7 +261,8 @@
                 <tr>
                     <td>
                         <table style="display: inline;">
-                            <tr><td><div style="box-sizing:border-box;"><span style="font-family: 'Girassol', serif ;font-size: large; padding: 5px; background: black; color:white; display:inline-block;" id="title">HASH HUNT</span></div></td></tr>
+                            <tr><td><div style="box-sizing:border-box;"><span style="font-family: serif ;font-size: large; padding: 5px; background: black; color:white; display:inline-block;" id="title">HASH HUNT</span></div></td></tr>
+
                         </table>
                     </td>
                     <td style="text-align: right; padding-right: 10px;">
@@ -382,7 +396,7 @@
             let cell = row.insertCell();
             window.wheelstablecells[cell_index] = cell;
             cell.classList.add("wheelscell");
-            cell.appendChild(document.createTextNode("?"));    // Question mark
+            cell.appendChild(document.createTextNode("❓"));    // Question mark. Must be the fat one or else the cells resize when we switch to the symbols.
             cell_index++;
         }
         row_index++;
@@ -943,7 +957,7 @@
         // Note that the existing JS eventlistener on the websocket seems to keep running and will update this box with the id="title". I could not find any documentation on
         // why this works or should not work, please LMK if you know of any.
         // Luckliy it seems that we do not need to quote the font-family name https://stackoverflow.com/questions/7638775/do-i-need-to-wrap-quotes-around-font-family-names-in-css
-        document.writeln("<div style='box-sizing:border-box;'><span style='font-family: Girassol, serif ;font-size: large; padding: 5px; background: black; color:white; display:inline-block;" id='title'>HASH HUNT</span></div>");
+        document.writeln("<div style='box-sizing:border-box;'><span style='font-family: serif ;font-size: large; padding: 5px; background: black; color:white; display:inline-block;' id='title'>HASH HUNT</span></div>");
         // https://www.w3schools.com/jsref/met_win_open.asp
         document.writeln("<h1>Hash Hunt Solved Puzzle Page</h1>");
         document.writeln("<p>Congradulations on solving the puzzle! What happens next?</p>");
@@ -1420,6 +1434,48 @@
     // happen, the server sends a `ping` every 15 seconds. If the connection is broken then we will timeout and close
     // the connection, which will alert the user.
 
+
+    // Give the use some visual feedback via the color of the title logo
+
+    // Set it to green that will slowly fade to white as we wait for next ping.
+    function refreshStatusGreen() {
+
+        // Give the use some visual feedback that we are still connected via the color of the title logo
+        // This will start green and then fade to white as we wait for the next message to come in.
+        // When we do get the next message it will go green again, otherwise the pingTimer will
+        // timeout and make it red.
+
+        console.log("green");
+
+        let titleElementStyle = document.getElementById("title").style;
+
+        titleElementStyle.animationDuration = pingTimeoutMs + "ms";
+
+        // After so much failure, this seems to be a way to Reset and animation that works. Yuck.
+        // https://css-tricks.com/restart-css-animation/
+
+        if (titleElementStyle.animationName == "fadeGreenToWhiteA") {
+            titleElementStyle.animationName = "fadeGreenToWhiteB";
+        } else {
+            titleElementStyle.animationName = "fadeGreenToWhiteA";
+        }
+
+        titleElementStyle.animationPlayState ="running";
+
+    }
+
+    // Indicate that we are no longer connected
+    // Stop any currently running and turn title logo red.
+    function setStatusRed() {
+        let titleElementStyle = document.getElementById("title").style;
+
+        // "none" is a special value that stops the currently running animation.
+        titleElementStyle.animationName = "none";
+        titleElementStyle.color="red";
+
+    }
+
+
     const pingTimeoutMs = 30000;       // We time out if wwe do not see a ping after this long
 
     let pingTimer;                  // Timer extended each time we get a pin
@@ -1427,10 +1483,15 @@
     function pingTimeout() {
         // If we have not seen a ping in a while then we are disconnected frm the server so terminate the connection
         // This will cuase the onclose to happen whch will alert the user.
-        console.log("Ping timeout. Closing connection.")
+        console.log("Ping timeout. Terminating connection.")
+
         window.ws.close();
+        // This is an internal call to tell the user. If we just close, then the connection takes a while to shut down.
+        window.ws.terminate();
     }
 
+    // This is called directly when we first connect to the websocket so we will eventually timeout if we do not get
+    // any messages from it. It is also called from resetPing() every time we do get a message.
     function setPingTimer() {
         pingTimer=setTimeout(pingTimeout,pingTimeoutMs);
     }
@@ -1439,14 +1500,7 @@
         clearTimeout(pingTimer);    // Clear the existing timer
         setPingTimer();             // Start a new one
 
-        // Give the use some visual feedback that we are still connected
-        document.getElementById("title").style.color="green";          // Set title green
-        setTimeout(
-            function() {
-                document.getElementById("title").style.color="white";  // Then set it back white
-            },
-           300                                                        //  300 milliseconds later
-        );
+        refreshStatusGreen();
 
     }
 
@@ -1540,8 +1594,16 @@
         ws.send( serializedBlock );
     }
 
+    console.log("add event listener...");
+
+    // Finally let's actually connect to the websocket server after everything is loaded...
+    // Note this must be on window and not document! https://discourse.wicg.io/t/why-does-document-addeventlistener-load-handler-not-work/1194/4
+
     // Open connection to server. Sadly this URL is hard coded becuase I could not figure how a good way to get express and ws running on the server at the same time.
-    ws = new WebSocket( window.webSocketServerURL );
+    window.ws = new WebSocket( window.webSocketServerURL );
+
+    let ws=window.ws;
+
     ws.binaryType = "arraybuffer";
     deactivatedAlert("Connecting to server")
 
@@ -1550,7 +1612,6 @@
         deactivatedAlert("Conected to server, waiting for data")
 
         setPingTimer();
-
     }
 
     ws.onmessage = ({ data }) => {
@@ -1560,20 +1621,25 @@
 
     }
 
+    // Tell the user we are not connected anymore so stop guessing.
+    ws.terminate = function() {
+        deactivatedAlert("Network error");
+
+        connectionLostOverlay.style.visibility="visible";
+        resetWheels();      // Stop any hash animations from popping out visually
+        setStatusRed();     // Set title logo red for more visual feedback that we are not connected.
+    };
+
     ws.onerror = function(event) {
         deactivatedAlert("Network error");
-        connectionLostOverlay.style.visibility="visible";
-
         console.error("WebSocket error observed:", event);
-        // We depend on the fact that an onClose() will soon follow to alert the player
-        // https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API/Writing_WebSocket_client_applications#connection_errors
+        this.terminate();   // Tell user
     };
 
     ws.onclose = function() {
-        console.log('Websocket: Connection closed!' , event);
-        ws = null;
+        console.error('Websocket: Connection closed!' , event);
         deactivatedAlert("Websocket closed");
-        connectionLostOverlay.style.visibility="visible";
+        this.terminate();   // Tell user
     }
 
 </script>
